@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { Moon, Sun, Monitor } from "lucide-react";
 import { api } from "@/services/api";
+import { useDarkMode } from "@/hooks/useDarkMode";
 import type { AutostartStatus } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ export const Settings = () => {
   const [autostartStatus, setAutostartStatus] = useState<AutostartStatus | null>(null);
   const [autostartLoading, setAutostartLoading] = useState(false);
   const [autostartMessage, setAutostartMessage] = useState<string | null>(null);
+  const { theme, setTheme } = useDarkMode();
 
   useEffect(() => {
     api.getThemePath().then(setThemePath);
@@ -163,41 +166,59 @@ export const Settings = () => {
         {/* Theme Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Theme</CardTitle>
+            <CardTitle className="text-base">Appearance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="font-medium">Custom Theme</p>
+                <p className="font-medium">Theme</p>
                 <p className="text-xs text-muted-foreground">
-                  Create your own theme by editing the theme.json file
+                  Select your preferred color scheme
                 </p>
               </div>
-              <code className="text-xs bg-muted px-3 py-1.5 rounded-md">
-                {themePath || "~/.config/wellbeing/theme.json"}
-              </code>
+              <div className="flex gap-1">
+                <Button
+                  variant={theme === "light" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTheme("light")}
+                  className="gap-2"
+                >
+                  <Sun className="h-4 w-4" />
+                  Light
+                </Button>
+                <Button
+                  variant={theme === "dark" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTheme("dark")}
+                  className="gap-2"
+                >
+                  <Moon className="h-4 w-4" />
+                  Dark
+                </Button>
+                <Button
+                  variant={theme === "system" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTheme("system")}
+                  className="gap-2"
+                >
+                  <Monitor className="h-4 w-4" />
+                  System
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Example theme.json:</p>
-              <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto">
-                {`{
-  "colors": {
-    "primary": "#4F46E5",
-    "secondary": "#818CF8",
-    "background": "#FFFFFF",
-    "surface": "#F3F4F6",
-    "text": "#1F2937",
-    "textSecondary": "#6B7280",
-    "accent": "#10B981",
-    "warning": "#F59E0B",
-    "danger": "#EF4444"
-  },
-  "fonts": {
-    "family": "Inter, sans-serif"
-  }
-}`}
-              </pre>
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="font-medium">Custom Theme File</p>
+                  <p className="text-xs text-muted-foreground">
+                    Advanced: edit the theme.json file for full customization
+                  </p>
+                </div>
+                <code className="text-xs bg-muted px-3 py-1.5 rounded-md">
+                  {themePath || "~/.config/wellbeing/theme.json"}
+                </code>
+              </div>
             </div>
           </CardContent>
         </Card>

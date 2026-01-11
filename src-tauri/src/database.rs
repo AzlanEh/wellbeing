@@ -464,4 +464,66 @@ impl Database {
         }
         Ok(result)
     }
+
+    /// Delete usage sessions older than the specified number of days.
+    /// Returns the number of deleted rows.
+    pub fn cleanup_old_data(&self, retention_days: i64) -> SqliteResult<usize> {
+        let cutoff = Utc::now().timestamp() - (retention_days * 24 * 60 * 60);
+        
+        let deleted = self.conn.execute(
+            "DELETE FROM usage_sessions WHERE end_time < ?1",
+            rusqlite::params![cutoff],
+        )?;
+
+        // Optionally vacuum to reclaim space (can be slow, so we skip it for now)
+        // self.conn.execute("VACUUM", [])?;
+
+        Ok(deleted)
+    }
+
+    /// Get the count of usage sessions and approximate database size info
+    pub fn get_storage_stats(&self) -> SqliteResult<(i64, i64, Option<String>)> {
+        let session_count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM usage_sessions",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let oldest_timestamp: Option<i64> = self.conn.query_row(
+            "SELECT MIN(start_time) FROM usage_sessions",
+            [],
+            |row| row.get(0),
+        ).optional()?.flatten();
+
+        let oldest_date = oldest_timestamp.map(|ts| {
+            chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%d").to_string())
+                .unwrap_or_else(|| "Unknown".to_string())
+        });
+
+        Ok((session_count, oldest_timestamp.unwrap_or(0), oldest_date))
+    }
+
+    /// Get all blocked apps in a single query (fixes N+1 query problem)
+    /// Returns app names where block_when_exceeded is true AND usage exceeds limit
+    pub fn get_blocked_apps(&self) -> SqliteResult<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT a.name
+             FROM apps a
+             JOIN app_limits al ON a.id = al.app_id
+             LEFT JOIN usage_sessions us ON a.id = us.app_id 
+                AND date(us.start_time, 'unixepoch', 'localtime') = date('now', 'localtime')
+             WHERE al.block_when_exceeded = 1
+             GROUP BY a.id
+             HAVING COALESCE(SUM(us.duration_seconds), 0) >= (al.daily_limit_minutes * 60)",
+        )?;
+
+        let rows = stmt.query_map([], |row| row.get(0))?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
+    }
 }

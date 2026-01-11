@@ -179,21 +179,8 @@ fn block_app(app_name: String) -> Result<(), String> {
 #[tauri::command]
 async fn get_blocked_apps(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let db = state.db.lock().await;
-    let limits = db.get_all_limits()
-        .map_err(|e| format!("Failed to get limits: {}", e))?;
-    
-    let mut blocked = Vec::new();
-    for limit in limits {
-        if limit.block_when_exceeded {
-            let is_blocked = db.is_app_blocked(&limit.app_name)
-                .map_err(|e| format!("Failed to check blocked status: {}", e))?;
-            if is_blocked {
-                blocked.push(limit.app_name);
-            }
-        }
-    }
-    
-    Ok(blocked)
+    db.get_blocked_apps()
+        .map_err(|e| format!("Failed to get blocked apps: {}", e))
 }
 
 #[tauri::command]
@@ -250,6 +237,24 @@ fn get_autostart_status() -> AutostartStatus {
     autostart::get_autostart_status()
 }
 
+/// Default data retention period in days
+const DEFAULT_RETENTION_DAYS: i64 = 90;
+
+#[tauri::command]
+async fn cleanup_old_data(state: State<'_, AppState>, days: Option<i64>) -> Result<usize, String> {
+    let retention_days = days.unwrap_or(DEFAULT_RETENTION_DAYS);
+    let db = state.db.lock().await;
+    db.cleanup_old_data(retention_days)
+        .map_err(|e| format!("Failed to cleanup old data: {}", e))
+}
+
+#[tauri::command]
+async fn get_storage_stats(state: State<'_, AppState>) -> Result<(i64, i64, Option<String>), String> {
+    let db = state.db.lock().await;
+    db.get_storage_stats()
+        .map_err(|e| format!("Failed to get storage stats: {}", e))
+}
+
 /// Run the app in headless background mode (no GUI window)
 /// This is used by the autostart service to track usage silently
 pub fn run_background() {
@@ -300,13 +305,28 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .manage(AppState { db })
-        .setup(move |app| {
+        .setup(move |_app| {
             // Start background usage tracking using Tauri's async runtime
-            let tracker = Arc::new(UsageTracker::new(tracker_db));
+            let tracker = Arc::new(UsageTracker::new(tracker_db.clone()));
             let tracker_clone = Arc::clone(&tracker);
             
             tauri::async_runtime::spawn(async move {
                 tracker_clone.start_tracking().await;
+            });
+
+            // Run data cleanup on startup (delete data older than 90 days)
+            let cleanup_db = Arc::clone(&tracker_db);
+            tauri::async_runtime::spawn(async move {
+                let db = cleanup_db.lock().await;
+                match db.cleanup_old_data(DEFAULT_RETENTION_DAYS) {
+                    Ok(deleted) if deleted > 0 => {
+                        println!("Cleaned up {} old usage sessions", deleted);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to cleanup old data: {}", e);
+                    }
+                    _ => {}
+                }
             });
             
             Ok(())
@@ -331,7 +351,9 @@ pub fn run() {
             send_test_notification,
             enable_autostart,
             disable_autostart,
-            get_autostart_status
+            get_autostart_status,
+            cleanup_old_data,
+            get_storage_stats
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

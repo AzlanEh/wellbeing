@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 import type { Theme, DailyStats, WeeklyStats, AppLimit, HourlyUsage, CategoryUsage } from "../types";
 import { api } from "../services/api";
 
@@ -176,8 +177,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       await api.setAppLimit(appName, minutes, blockWhenExceeded);
       await get().loadAppLimits();
+      toast.success(`Limit set for ${appName}`, {
+        description: `${minutes} minutes daily limit`,
+      });
     } catch (error) {
       console.error("Failed to set app limit:", error);
+      toast.error("Failed to set app limit", {
+        description: String(error),
+      });
       set({ error: String(error) });
     }
   },
@@ -186,8 +193,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       await api.removeAppLimit(appName);
       await get().loadAppLimits();
+      toast.success(`Limit removed for ${appName}`);
     } catch (error) {
       console.error("Failed to remove app limit:", error);
+      toast.error("Failed to remove app limit", {
+        description: String(error),
+      });
       set({ error: String(error) });
     }
   },
@@ -197,8 +208,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       await api.setAppCategory(appName, category);
       await get().loadDailyStats();
       await get().loadCategoryUsage();
+      toast.success(`Category updated`, {
+        description: `${appName} set to ${category}`,
+      });
     } catch (error) {
       console.error("Failed to set app category:", error);
+      toast.error("Failed to set category", {
+        description: String(error),
+      });
       set({ error: String(error) });
     }
   },

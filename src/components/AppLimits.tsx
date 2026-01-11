@@ -19,6 +19,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 export const AppLimits = () => {
@@ -39,6 +49,7 @@ export const AppLimits = () => {
   const [customAppName, setCustomAppName] = useState("");
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const trackedApps = dailyStats?.apps || [];
 
@@ -77,7 +88,14 @@ export const AppLimits = () => {
   };
 
   const handleRemove = async (appName: string) => {
-    await removeAppLimit(appName);
+    setDeleteConfirm(appName);
+  };
+
+  const confirmRemove = async () => {
+    if (deleteConfirm) {
+      await removeAppLimit(deleteConfirm);
+      setDeleteConfirm(null);
+    }
   };
 
   const handleBlockNow = async (appName: string) => {
@@ -491,6 +509,28 @@ export const AppLimits = () => {
           </Card>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove App Limit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the limit for <strong>{deleteConfirm}</strong>? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmRemove}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove Limit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

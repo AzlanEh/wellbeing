@@ -36,56 +36,40 @@ This document tracks planned improvements for the Digital Wellbeing application.
 
 ## Medium Priority (Performance/UX)
 
-### 6. [ ] Reduce Polling Frequency
-- **Location:** `src/App.tsx:18`
+### 6. [x] Reduce Polling Frequency
+- **Location:** `src/App.tsx`
 - **Issue:** Refreshes all data every 10 seconds (7 API calls), wasteful when idle
-- **Solution:** 
-  - Increase interval to 30-60 seconds
-  - Implement visibility-based refresh (pause when window minimized)
-  - Consider event-driven updates from backend using Tauri events
+- **Solution:** ✅ Increased interval to 30 seconds. Added visibility-based refresh that pauses polling when window is hidden and refreshes immediately when becoming visible.
 
-### 7. [ ] Add User Error Feedback (Toast Notifications)
-- **Location:** `src/store/useAppStore.ts` (multiple locations)
+### 7. [x] Add User Error Feedback (Toast Notifications)
+- **Location:** `src/store/useAppStore.ts`, `src/App.tsx`
 - **Issue:** Errors only logged to console, users never see feedback
-- **Solution:** 
-  - Install `sonner` toast library (works well with Shadcn/UI)
-  - Show success/error toasts for user actions
-  - Display connection errors prominently
+- **Solution:** ✅ Installed `sonner` toast library. Added success/error toasts for setAppLimit, removeAppLimit, and setAppCategory actions.
 
-### 8. [ ] Memoize Expensive Dashboard Computations
-- **Location:** `src/components/Dashboard.tsx:83-111`
+### 8. [x] Memoize Expensive Dashboard Computations
+- **Location:** `src/components/Dashboard.tsx`
 - **Issue:** `weeklyData`, `pieData`, `categoryData` recalculated on every render
-- **Solution:** Wrap computations with `useMemo()`:
-  ```typescript
-  const weeklyData = useMemo(() => {
-    // calculation
-  }, [weeklyStats]);
-  ```
+- **Solution:** ✅ Wrapped `appsToday`, `pieData`, `weeklyData`, `timelineData`, and `categoryData` with `useMemo()`.
 
-### 9. [ ] Implement Data Retention Policy
-- **Location:** `src-tauri/src/database.rs`
+### 9. [x] Implement Data Retention Policy
+- **Location:** `src-tauri/src/database.rs`, `src-tauri/src/lib.rs`
 - **Issue:** Old usage sessions never deleted, database grows indefinitely
-- **Solution:** 
-  - Add cleanup function to delete data older than configurable period (default 90 days)
-  - Run cleanup on app startup or daily
+- **Solution:** ✅ Added `cleanup_old_data()` and `get_storage_stats()` methods. Runs cleanup on app startup (default 90 days retention). Added Tauri commands for manual cleanup.
 
-### 10. [ ] Fix N+1 Query in get_blocked_apps
-- **Location:** `src-tauri/src/lib.rs:175-192`
+### 10. [x] Fix N+1 Query in get_blocked_apps
+- **Location:** `src-tauri/src/lib.rs`, `src-tauri/src/database.rs`
 - **Issue:** Loops through limits and queries database for each one
-- **Solution:** Single JOIN query to get all blocked apps at once
+- **Solution:** ✅ Added `get_blocked_apps()` method in database.rs with single JOIN query that gets all blocked apps at once.
 
-### 11. [ ] Add Confirmation Dialogs for Destructive Actions
+### 11. [x] Add Confirmation Dialogs for Destructive Actions
 - **Location:** `src/components/AppLimits.tsx`
 - **Issue:** Deleting limits happens immediately without confirmation
-- **Solution:** Add Shadcn AlertDialog before removing limits
+- **Solution:** ✅ Created AlertDialog component. Added delete confirmation dialog before removing limits.
 
-### 12. [ ] Add Dark Mode Toggle
-- **Location:** `src/components/Settings.tsx`
+### 12. [x] Add Dark Mode Toggle
+- **Location:** `src/components/Settings.tsx`, `src/hooks/useDarkMode.ts`
 - **Issue:** Dark mode CSS exists but no UI toggle to switch
-- **Solution:** 
-  - Add theme toggle switch in Settings
-  - Persist preference to localStorage or theme.json
-  - Apply `dark` class to document root
+- **Solution:** ✅ Created `useDarkMode` hook with localStorage persistence. Added Light/Dark/System toggle buttons in Settings with icons.
 
 ---
 
@@ -272,9 +256,9 @@ These can be done quickly with minimal risk:
 
 1. [ ] Remove dead code in `commands.rs`
 2. [ ] Fix duplicate `formatTime` in Sidebar
-3. [ ] Increase refresh interval to 30s
-4. [ ] Add `useMemo` to Dashboard computations
-5. [ ] Add dark mode toggle in Settings
+3. [x] Increase refresh interval to 30s ✅
+4. [x] Add `useMemo` to Dashboard computations ✅
+5. [x] Add dark mode toggle in Settings ✅
 6. [ ] Add database indexes
 7. [x] Enable CSP in tauri.conf.json ✅
 

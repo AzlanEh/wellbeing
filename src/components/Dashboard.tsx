@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -72,15 +72,22 @@ export const Dashboard = () => {
   }
 
   const totalToday = dailyStats?.total_seconds || 0;
-  const appsToday = dailyStats?.apps.filter((a) => a.duration_seconds > 0) || [];
+  const appsToday = useMemo(
+    () => dailyStats?.apps.filter((a) => a.duration_seconds > 0) || [],
+    [dailyStats]
+  );
 
-  const pieData = appsToday.slice(0, 8).map((app) => ({
-    name: app.app_name,
-    value: app.duration_seconds,
-  }));
+  const pieData = useMemo(
+    () =>
+      appsToday.slice(0, 8).map((app) => ({
+        name: app.app_name,
+        value: app.duration_seconds,
+      })),
+    [appsToday]
+  );
 
   // Generate last 7 days with data filled in
-  const weeklyData = (() => {
+  const weeklyData = useMemo(() => {
     const days: { name: string; hours: number }[] = [];
     const now = new Date();
     
@@ -108,22 +115,30 @@ export const Dashboard = () => {
     }
     
     return days;
-  })();
+  }, [weeklyStats]);
 
-  const timelineData = Array.from({ length: 24 }, (_, i) => {
-    const usage = hourlyUsage.find((h) => h.hour === i);
-    return {
-      hour: `${i.toString().padStart(2, "0")}:00`,
-      minutes: usage ? Math.round(usage.total_seconds / 60) : 0,
-    };
-  });
+  const timelineData = useMemo(
+    () =>
+      Array.from({ length: 24 }, (_, i) => {
+        const usage = hourlyUsage.find((h) => h.hour === i);
+        return {
+          hour: `${i.toString().padStart(2, "0")}:00`,
+          minutes: usage ? Math.round(usage.total_seconds / 60) : 0,
+        };
+      }),
+    [hourlyUsage]
+  );
 
-  const categoryData = categoryUsage.map((cat) => ({
-    name: cat.category,
-    value: cat.total_seconds,
-    apps: cat.app_count,
-    color: CATEGORY_COLORS[cat.category] || CATEGORY_COLORS["Other"],
-  }));
+  const categoryData = useMemo(
+    () =>
+      categoryUsage.map((cat) => ({
+        name: cat.category,
+        value: cat.total_seconds,
+        apps: cat.app_count,
+        color: CATEGORY_COLORS[cat.category] || CATEGORY_COLORS["Other"],
+      })),
+    [categoryUsage]
+  );
 
   const handleCategoryChange = async (appName: string, category: string) => {
     await setAppCategory(appName, category);
