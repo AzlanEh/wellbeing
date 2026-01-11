@@ -1,11 +1,11 @@
 import { useEffect, useCallback } from "react";
-import { useAppStore } from "./store/useAppStore";
-import { useTheme } from "./hooks/useTheme";
-import { Sidebar } from "./components/Sidebar";
-import { Dashboard } from "./components/Dashboard";
-import { AppLimits } from "./components/AppLimits";
-import { Settings } from "./components/Settings";
-import "./App.css";
+import { useAppStore } from "@/store/useAppStore";
+import { useTheme } from "@/hooks/useTheme";
+import { Sidebar } from "@/components/Sidebar";
+import { Dashboard } from "@/components/Dashboard";
+import { AppLimits } from "@/components/AppLimits";
+import { Settings } from "@/components/Settings";
+import "@/index.css";
 
 function App() {
   const { activeTab, refreshAll, setActiveTab } = useAppStore();
@@ -65,9 +65,9 @@ function App() {
   };
 
   return (
-    <div className="app">
+    <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <main className="main-content">{renderContent()}</main>
+      <main className="flex-1 p-8 overflow-y-auto">{renderContent()}</main>
     </div>
   );
 }

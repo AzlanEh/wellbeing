@@ -1,12 +1,40 @@
 import { useState, useEffect } from "react";
-import { useAppStore } from "../store/useAppStore";
-import { formatDuration } from "../utils/formatters";
-import { api } from "../services/api";
-import type { InstalledApp } from "../types";
+import { Plus, Trash2, Clock, Ban, Lock, Search } from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
+import { formatDuration } from "@/utils/formatters";
+import { api } from "@/services/api";
+import type { InstalledApp } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export const AppLimits = () => {
-  const { appLimits, dailyStats, blockedApps, setAppLimit, removeAppLimit, loadBlockedApps } = useAppStore();
-  const [newLimit, setNewLimit] = useState({ appName: "", minutes: 60, blockWhenExceeded: false });
+  const {
+    appLimits,
+    dailyStats,
+    blockedApps,
+    setAppLimit,
+    removeAppLimit,
+    loadBlockedApps,
+  } = useAppStore();
+  const [newLimit, setNewLimit] = useState({
+    appName: "",
+    minutes: 60,
+    blockWhenExceeded: false,
+  });
   const [showAddForm, setShowAddForm] = useState(false);
   const [customAppName, setCustomAppName] = useState("");
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
@@ -14,12 +42,10 @@ export const AppLimits = () => {
 
   const trackedApps = dailyStats?.apps || [];
 
-  // Load installed apps on mount
   useEffect(() => {
     api.getInstalledApps().then(setInstalledApps).catch(console.error);
   }, []);
 
-  // Check for blocked apps periodically
   useEffect(() => {
     const interval = setInterval(() => {
       loadBlockedApps();
@@ -27,17 +53,20 @@ export const AppLimits = () => {
     return () => clearInterval(interval);
   }, [loadBlockedApps]);
 
-  // Filter installed apps based on search and existing limits
-  const filteredInstalledApps = installedApps.filter(app => {
-    const notLimited = !appLimits.find(l => l.app_name.toLowerCase() === app.name.toLowerCase());
-    const matchesSearch = searchQuery === "" || 
+  const filteredInstalledApps = installedApps.filter((app) => {
+    const notLimited = !appLimits.find(
+      (l) => l.app_name.toLowerCase() === app.name.toLowerCase()
+    );
+    const matchesSearch =
+      searchQuery === "" ||
       app.name.toLowerCase().includes(searchQuery.toLowerCase());
     return notLimited && matchesSearch;
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const appName = newLimit.appName === "__custom__" ? customAppName : newLimit.appName;
+    const appName =
+      newLimit.appName === "__custom__" ? customAppName : newLimit.appName;
     if (appName && newLimit.minutes > 0) {
       await setAppLimit(appName, newLimit.minutes, newLimit.blockWhenExceeded);
       setNewLimit({ appName: "", minutes: 60, blockWhenExceeded: false });
@@ -61,7 +90,9 @@ export const AppLimits = () => {
   };
 
   const getUsageForApp = (appName: string) => {
-    const app = trackedApps.find((a) => a.app_name.toLowerCase() === appName.toLowerCase());
+    const app = trackedApps.find(
+      (a) => a.app_name.toLowerCase() === appName.toLowerCase()
+    );
     return app?.duration_seconds || 0;
   };
 
@@ -72,132 +103,183 @@ export const AppLimits = () => {
   };
 
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 100) return "var(--color-danger)";
-    if (percentage >= 80) return "var(--color-warning)";
-    return "var(--color-accent)";
+    if (percentage >= 100) return "bg-destructive";
+    if (percentage >= 80) return "bg-amber-500";
+    return "bg-emerald-500";
   };
 
   const isAppBlocked = (appName: string) => blockedApps.includes(appName);
 
+  const quickTimeOptions = [15, 30, 60, 120];
+
   return (
-    <div className="app-limits">
-      <header className="section-header">
+    <div className="max-w-3xl space-y-6">
+      <header className="flex items-start justify-between">
         <div>
-          <h2>App Limits</h2>
-          <p className="subtitle">Set daily time limits for applications</p>
+          <h2 className="text-2xl font-bold">App Limits</h2>
+          <p className="text-muted-foreground text-sm">
+            Set daily time limits for applications
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddForm(true)}>
-          + Add Limit
-        </button>
+        <Button onClick={() => setShowAddForm(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Limit
+        </Button>
       </header>
 
       {blockedApps.length > 0 && (
-        <div className="blocked-apps-banner">
-          <div className="blocked-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-            </svg>
-          </div>
-          <div className="blocked-info">
-            <strong>{blockedApps.length} app{blockedApps.length > 1 ? 's' : ''} blocked</strong>
-            <span>{blockedApps.join(", ")}</span>
-          </div>
-        </div>
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="h-10 w-10 rounded-full bg-destructive flex items-center justify-center text-white">
+              <Ban className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-medium text-destructive">
+                {blockedApps.length} app{blockedApps.length > 1 ? "s" : ""}{" "}
+                blocked
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {blockedApps.join(", ")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {showAddForm && (
-        <div className="modal-overlay">
-          <div className="modal modal-large">
-            <h3>Add App Limit</h3>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="appSearch">Search Applications</label>
-                <input
-                  type="text"
-                  id="appSearch"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Type to search installed apps..."
-                  autoFocus
-                />
+      <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Add App Limit</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+            <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+              <div className="space-y-2">
+                <Label htmlFor="appSearch">Search Applications</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="appSearch"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Type to search installed apps..."
+                    className="pl-9"
+                    autoFocus
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>Select Application</label>
-                <div className="app-selector">
+              <div className="space-y-2 flex-1 overflow-hidden">
+                <Label>Select Application</Label>
+                <ScrollArea className="h-[250px] rounded-md border p-3">
                   {trackedApps.length > 0 && (
-                    <div className="app-group">
-                      <div className="app-group-label">Recently Used</div>
-                      <div className="app-grid">
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                        Recently Used
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
                         {trackedApps
-                          .filter(app => 
-                            !appLimits.find(l => l.app_name === app.app_name) &&
-                            (searchQuery === "" || app.app_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .filter(
+                            (app) =>
+                              !appLimits.find(
+                                (l) => l.app_name === app.app_name
+                              ) &&
+                              (searchQuery === "" ||
+                                app.app_name
+                                  .toLowerCase()
+                                  .includes(searchQuery.toLowerCase()))
                           )
                           .slice(0, 8)
                           .map((app) => (
                             <button
                               key={app.app_name}
                               type="button"
-                              className={`app-option ${newLimit.appName === app.app_name ? 'selected' : ''}`}
-                              onClick={() => setNewLimit({ ...newLimit, appName: app.app_name })}
+                              className={cn(
+                                "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors",
+                                newLimit.appName === app.app_name
+                                  ? "border-primary bg-primary/10"
+                                  : "border-transparent bg-muted hover:bg-muted/80"
+                              )}
+                              onClick={() =>
+                                setNewLimit({ ...newLimit, appName: app.app_name })
+                              }
                             >
-                              <div className="app-option-icon">
+                              <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-semibold">
                                 {app.app_name.charAt(0).toUpperCase()}
                               </div>
-                              <span className="app-option-name">{app.app_name}</span>
+                              <span className="text-xs text-center truncate w-full">
+                                {app.app_name}
+                              </span>
                             </button>
                           ))}
                       </div>
                     </div>
                   )}
 
-                  <div className="app-group">
-                    <div className="app-group-label">
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                       Installed Apps ({filteredInstalledApps.length})
-                    </div>
-                    <div className="app-grid">
+                    </p>
+                    <div className="grid grid-cols-4 gap-2">
                       {filteredInstalledApps.slice(0, 24).map((app) => (
                         <button
                           key={app.desktop_file}
                           type="button"
-                          className={`app-option ${newLimit.appName === app.name ? 'selected' : ''}`}
-                          onClick={() => setNewLimit({ ...newLimit, appName: app.name })}
+                          className={cn(
+                            "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors",
+                            newLimit.appName === app.name
+                              ? "border-primary bg-primary/10"
+                              : "border-transparent bg-muted hover:bg-muted/80"
+                          )}
+                          onClick={() =>
+                            setNewLimit({ ...newLimit, appName: app.name })
+                          }
                         >
-                          <div className="app-option-icon">
+                          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-semibold">
                             {app.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="app-option-name">{app.name}</span>
+                          <span className="text-xs text-center truncate w-full">
+                            {app.name}
+                          </span>
                         </button>
                       ))}
                     </div>
                     {filteredInstalledApps.length > 24 && (
-                      <p className="form-hint">
-                        Showing 24 of {filteredInstalledApps.length} apps. Use search to find more.
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Showing 24 of {filteredInstalledApps.length} apps. Use
+                        search to find more.
                       </p>
                     )}
                   </div>
 
-                  <div className="app-group">
-                    <div className="app-group-label">Custom</div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                      Custom
+                    </p>
                     <button
                       type="button"
-                      className={`app-option app-option-custom ${newLimit.appName === '__custom__' ? 'selected' : ''}`}
-                      onClick={() => setNewLimit({ ...newLimit, appName: '__custom__' })}
+                      className={cn(
+                        "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors w-[calc(25%-6px)]",
+                        newLimit.appName === "__custom__"
+                          ? "border-primary bg-primary/10"
+                          : "border-transparent bg-muted hover:bg-muted/80"
+                      )}
+                      onClick={() =>
+                        setNewLimit({ ...newLimit, appName: "__custom__" })
+                      }
                     >
-                      <div className="app-option-icon">+</div>
-                      <span className="app-option-name">Enter custom name</span>
+                      <div className="h-9 w-9 rounded-lg bg-muted-foreground flex items-center justify-center text-white font-semibold">
+                        +
+                      </div>
+                      <span className="text-xs text-center">Enter custom</span>
                     </button>
                   </div>
-                </div>
+                </ScrollArea>
               </div>
-              
+
               {newLimit.appName === "__custom__" && (
-                <div className="form-group">
-                  <label htmlFor="customAppName">Custom App Name</label>
-                  <input
-                    type="text"
+                <div className="space-y-2">
+                  <Label htmlFor="customAppName">Custom App Name</Label>
+                  <Input
                     id="customAppName"
                     value={customAppName}
                     onChange={(e) => setCustomAppName(e.target.value)}
@@ -208,15 +290,15 @@ export const AppLimits = () => {
               )}
 
               {newLimit.appName && newLimit.appName !== "__custom__" && (
-                <div className="selected-app-preview">
-                  Selected: <strong>{newLimit.appName}</strong>
+                <div className="rounded-lg bg-primary/10 p-3 text-sm">
+                  Selected: <strong className="text-primary">{newLimit.appName}</strong>
                 </div>
               )}
-              
-              <div className="form-group">
-                <label htmlFor="minutes">Daily Limit</label>
-                <div className="time-input-group">
-                  <input
+
+              <div className="space-y-2">
+                <Label htmlFor="minutes">Daily Limit</Label>
+                <div className="flex items-center gap-3">
+                  <Input
                     type="number"
                     id="minutes"
                     value={newLimit.minutes}
@@ -228,72 +310,81 @@ export const AppLimits = () => {
                     }
                     min="1"
                     max="1440"
+                    className="w-20"
                     required
                   />
-                  <span className="time-input-suffix">minutes</span>
-                  <div className="quick-time-buttons">
-                    {[15, 30, 60, 120].map(m => (
-                      <button
+                  <span className="text-sm text-muted-foreground">minutes</span>
+                  <div className="flex gap-1 ml-auto">
+                    {quickTimeOptions.map((m) => (
+                      <Button
                         key={m}
                         type="button"
-                        className={`quick-time-btn ${newLimit.minutes === m ? 'active' : ''}`}
+                        variant={newLimit.minutes === m ? "default" : "outline"}
+                        size="sm"
                         onClick={() => setNewLimit({ ...newLimit, minutes: m })}
                       >
-                        {m < 60 ? `${m}m` : `${m/60}h`}
-                      </button>
+                        {m < 60 ? `${m}m` : `${m / 60}h`}
+                      </Button>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div className="form-group checkbox-group">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={newLimit.blockWhenExceeded}
-                    onChange={(e) =>
-                      setNewLimit({
-                        ...newLimit,
-                        blockWhenExceeded: e.target.checked,
-                      })
-                    }
-                  />
-                  <span className="checkbox-text">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="blockWhenExceeded"
+                  checked={newLimit.blockWhenExceeded}
+                  onChange={(e) =>
+                    setNewLimit({
+                      ...newLimit,
+                      blockWhenExceeded: e.target.checked,
+                    })
+                  }
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="blockWhenExceeded" className="cursor-pointer">
                     Block app when limit is exceeded
-                  </span>
-                </label>
-                <p className="form-hint">
-                  When enabled, the app will be automatically closed once the daily limit is reached.
-                </p>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, the app will be automatically closed once the
+                    daily limit is reached.
+                  </p>
+                </div>
               </div>
+            </div>
 
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setCustomAppName("");
-                    setSearchQuery("");
-                    setNewLimit({ appName: "", minutes: 60, blockWhenExceeded: false });
-                  }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary"
-                  disabled={!newLimit.appName || (newLimit.appName === "__custom__" && !customAppName)}
-                >
-                  Add Limit
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setCustomAppName("");
+                  setSearchQuery("");
+                  setNewLimit({
+                    appName: "",
+                    minutes: 60,
+                    blockWhenExceeded: false,
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !newLimit.appName ||
+                  (newLimit.appName === "__custom__" && !customAppName)
+                }
+              >
+                Add Limit
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      <div className="limits-list">
+      <div className="space-y-4">
         {appLimits.length > 0 ? (
           appLimits.map((limit) => {
             const progress = getProgressPercentage(
@@ -305,102 +396,99 @@ export const AppLimits = () => {
             const blocked = isAppBlocked(limit.app_name);
 
             return (
-              <div key={limit.id} className={`limit-item ${blocked ? 'limit-blocked' : ''}`}>
-                <div className="limit-header">
-                  <div className="limit-app-info">
-                    <div className={`limit-app-icon ${blocked ? 'blocked' : ''}`}>
-                      {blocked ? (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                        </svg>
-                      ) : (
-                        limit.app_name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div>
-                      <span className="limit-app-name">
-                        {limit.app_name}
-                        {limit.block_when_exceeded && (
-                          <span className="blocking-badge" title="App will be blocked when limit is exceeded">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                              <path d="M7 11V7a5 5 0 0110 0v4" />
-                            </svg>
-                          </span>
+              <Card
+                key={limit.id}
+                className={cn(blocked && "border-destructive/30 bg-destructive/5")}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          "h-10 w-10 rounded-lg flex items-center justify-center text-white font-semibold",
+                          blocked ? "bg-destructive" : "bg-primary"
                         )}
-                      </span>
-                      <span className="limit-details">
-                        {formatDuration(usage)} / {formatDuration(limitSeconds)}
-                      </span>
+                      >
+                        {blocked ? (
+                          <Ban className="h-5 w-5" />
+                        ) : (
+                          limit.app_name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{limit.app_name}</span>
+                          {limit.block_when_exceeded && (
+                            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDuration(usage)} / {formatDuration(limitSeconds)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {progress >= 100 &&
+                        limit.block_when_exceeded &&
+                        !blocked && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleBlockNow(limit.app_name)}
+                          >
+                            Block Now
+                          </Button>
+                        )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRemove(limit.app_name)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="limit-actions">
-                    {progress >= 100 && limit.block_when_exceeded && !blocked && (
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleBlockNow(limit.app_name)}
-                        title="Block this app now"
-                      >
-                        Block Now
-                      </button>
-                    )}
-                    <button
-                      className="btn btn-icon btn-danger"
-                      onClick={() => handleRemove(limit.app_name)}
-                      title="Remove limit"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div className="limit-progress">
-                  <div
-                    className="limit-progress-bar"
-                    style={{
-                      width: `${progress}%`,
-                      backgroundColor: getProgressColor(progress),
-                    }}
+
+                  <Progress
+                    value={progress}
+                    className="h-2 mb-2"
+                    indicatorClassName={getProgressColor(progress)}
                   />
-                </div>
-                <div className="limit-status">
-                  {blocked ? (
-                    <span className="status-blocked">Blocked for today</span>
-                  ) : progress >= 100 ? (
-                    <span className="status-exceeded">
-                      Limit exceeded!
-                      {limit.block_when_exceeded && " App will be blocked."}
-                    </span>
-                  ) : progress >= 80 ? (
-                    <span className="status-warning">Approaching limit</span>
-                  ) : (
-                    <span className="status-ok">
-                      {Math.round(100 - progress)}% remaining
-                    </span>
-                  )}
-                </div>
-              </div>
+
+                  <div className="text-xs">
+                    {blocked ? (
+                      <Badge variant="destructive">Blocked for today</Badge>
+                    ) : progress >= 100 ? (
+                      <Badge variant="destructive">
+                        Limit exceeded!
+                        {limit.block_when_exceeded && " App will be blocked."}
+                      </Badge>
+                    ) : progress >= 80 ? (
+                      <Badge variant="warning">Approaching limit</Badge>
+                    ) : (
+                      <Badge variant="success">
+                        {Math.round(100 - progress)}% remaining
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             );
           })
         ) : (
-          <div className="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12,6 12,12 16,14" />
-            </svg>
-            <h3>No limits set</h3>
-            <p>Set daily time limits to help manage your screen time.</p>
-            <button className="btn btn-primary" onClick={() => setShowAddForm(true)}>
-              Add Your First Limit
-            </button>
-          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="font-semibold mb-2">No limits set</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Set daily time limits to help manage your screen time.
+              </p>
+              <Button onClick={() => setShowAddForm(true)}>
+                Add Your First Limit
+              </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

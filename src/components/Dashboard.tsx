@@ -12,9 +12,21 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { useAppStore } from "../store/useAppStore";
-import { formatDuration, getDayName } from "../utils/formatters";
-import { APP_CATEGORIES } from "../types";
+import { Clock, LayoutGrid, Calendar } from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
+import { formatDuration, getDayName } from "@/utils/formatters";
+import { APP_CATEGORIES } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const COLORS = [
   "#4F46E5",
@@ -28,29 +40,33 @@ const COLORS = [
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  "Productivity": "#10B981",
-  "Development": "#4F46E5",
-  "Communication": "#06B6D4",
-  "Entertainment": "#EC4899",
+  Productivity: "#10B981",
+  Development: "#4F46E5",
+  Communication: "#06B6D4",
+  Entertainment: "#EC4899",
   "Social Media": "#F59E0B",
-  "Gaming": "#EF4444",
-  "Utilities": "#6B7280",
-  "Education": "#8B5CF6",
-  "Other": "#9CA3AF",
-  "Uncategorized": "#D1D5DB",
+  Gaming: "#EF4444",
+  Utilities: "#6B7280",
+  Education: "#8B5CF6",
+  Other: "#9CA3AF",
+  Uncategorized: "#D1D5DB",
 };
 
-type ChartView = "weekly" | "timeline" | "category";
-
 export const Dashboard = () => {
-  const { dailyStats, weeklyStats, hourlyUsage, categoryUsage, isLoading, setAppCategory } = useAppStore();
-  const [chartView, setChartView] = useState<ChartView>("weekly");
+  const {
+    dailyStats,
+    weeklyStats,
+    hourlyUsage,
+    categoryUsage,
+    isLoading,
+    setAppCategory,
+  } = useAppStore();
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
   if (isLoading) {
     return (
-      <div className="dashboard loading">
-        <div className="loader">Loading...</div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -69,7 +85,6 @@ export const Dashboard = () => {
       hours: Math.round((day.total_seconds / 3600) * 10) / 10,
     })) || [];
 
-  // Prepare timeline data (24 hours)
   const timelineData = Array.from({ length: 24 }, (_, i) => {
     const usage = hourlyUsage.find((h) => h.hour === i);
     return {
@@ -78,7 +93,6 @@ export const Dashboard = () => {
     };
   });
 
-  // Prepare category data
   const categoryData = categoryUsage.map((cat) => ({
     name: cat.category,
     value: cat.total_seconds,
@@ -92,286 +106,335 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <h2>Screen Time Dashboard</h2>
-        <p className="subtitle">Track your daily app usage</p>
+    <div className="space-y-6">
+      <header>
+        <h2 className="text-2xl font-bold">Screen Time Dashboard</h2>
+        <p className="text-muted-foreground text-sm">
+          Track your daily app usage
+        </p>
       </header>
 
-      <div className="stats-grid">
-        <div className="stat-card total-time">
-          <div className="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12,6 12,12 16,14" />
-            </svg>
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Total Today</span>
-            <span className="stat-value">{formatDuration(totalToday)}</span>
-          </div>
-        </div>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="h-12 w-12 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+              <Clock className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Total Today
+              </p>
+              <p className="text-2xl font-bold">{formatDuration(totalToday)}</p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="stat-card apps-used">
-          <div className="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Apps Used</span>
-            <span className="stat-value">{appsToday.length}</span>
-          </div>
-        </div>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="h-12 w-12 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+              <LayoutGrid className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Apps Used
+              </p>
+              <p className="text-2xl font-bold">{appsToday.length}</p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="stat-card week-total">
-          <div className="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">This Week</span>
-            <span className="stat-value">
-              {formatDuration(weeklyStats?.total_seconds || 0)}
-            </span>
-          </div>
-        </div>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="h-12 w-12 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+              <Calendar className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                This Week
+              </p>
+              <p className="text-2xl font-bold">
+                {formatDuration(weeklyStats?.total_seconds || 0)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="charts-grid">
-        <div className="chart-card chart-card-wide">
-          <div className="chart-header">
-            <h3>Usage Overview</h3>
-            <div className="chart-tabs">
-              <button
-                className={`chart-tab ${chartView === "weekly" ? "active" : ""}`}
-                onClick={() => setChartView("weekly")}
-              >
-                Weekly
-              </button>
-              <button
-                className={`chart-tab ${chartView === "timeline" ? "active" : ""}`}
-                onClick={() => setChartView("timeline")}
-              >
-                Timeline
-              </button>
-              <button
-                className={`chart-tab ${chartView === "category" ? "active" : ""}`}
-                onClick={() => setChartView("category")}
-              >
-                Categories
-              </button>
-            </div>
-          </div>
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <Tabs defaultValue="weekly" className="w-full">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Usage Overview</CardTitle>
+                <TabsList>
+                  <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                  <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                  <TabsTrigger value="category">Categories</TabsTrigger>
+                </TabsList>
+              </div>
 
-          {chartView === "weekly" && (
-            weeklyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={weeklyData}>
-                  <XAxis dataKey="name" stroke="var(--color-text-secondary)" />
-                  <YAxis stroke="var(--color-text-secondary)" />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-surface)",
-                      border: "none",
-                      borderRadius: "8px",
-                    }}
-                    formatter={(value: number) => [`${value}h`, "Screen Time"]}
-                  />
-                  <Bar dataKey="hours" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="no-data">No data for this week yet</div>
-            )
-          )}
+              <TabsContent value="weekly" className="mt-4">
+                {weeklyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={weeklyData}>
+                      <XAxis
+                        dataKey="name"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "hsl(var(--popover))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                        }}
+                        formatter={(value: number) => [`${value}h`, "Screen Time"]}
+                      />
+                      <Bar
+                        dataKey="hours"
+                        fill="hsl(var(--primary))"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                    No data for this week yet
+                  </div>
+                )}
+              </TabsContent>
 
-          {chartView === "timeline" && (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={timelineData}>
-                <XAxis 
-                  dataKey="hour" 
-                  stroke="var(--color-text-secondary)"
-                  interval={2}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis 
-                  stroke="var(--color-text-secondary)"
-                  tick={{ fontSize: 11 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-surface)",
-                    border: "none",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: number) => [`${value} min`, "Screen Time"]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="minutes"
-                  stroke="var(--color-primary)"
-                  fill="var(--color-primary)"
-                  fillOpacity={0.3}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-
-          {chartView === "category" && (
-            categoryData.length > 0 ? (
-              <div className="category-chart-container">
-                <ResponsiveContainer width="50%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
+              <TabsContent value="timeline" className="mt-4">
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={timelineData}>
+                    <XAxis
+                      dataKey="hour"
+                      stroke="hsl(var(--muted-foreground))"
+                      interval={2}
+                      fontSize={11}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={11}
+                    />
                     <Tooltip
-                      formatter={(value: number) => [formatDuration(value), "Time"]}
                       contentStyle={{
-                        background: "var(--color-surface)",
-                        border: "none",
+                        background: "hsl(var(--popover))",
+                        border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
+                      formatter={(value: number) => [`${value} min`, "Screen Time"]}
                     />
-                  </PieChart>
+                    <Area
+                      type="monotone"
+                      dataKey="minutes"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary))"
+                      fillOpacity={0.3}
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
-                <div className="category-legend">
-                  {categoryData.map((cat) => (
-                    <div key={cat.name} className="category-legend-item">
-                      <span 
-                        className="category-dot" 
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      <span className="category-name">{cat.name}</span>
-                      <span className="category-time">{formatDuration(cat.value)}</span>
+              </TabsContent>
+
+              <TabsContent value="category" className="mt-4">
+                {categoryData.length > 0 ? (
+                  <div className="flex items-center gap-6">
+                    <ResponsiveContainer width="50%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => [
+                            formatDuration(value),
+                            "Time",
+                          ]}
+                          contentStyle={{
+                            background: "hsl(var(--popover))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex-1 flex flex-col gap-2">
+                      {categoryData.map((cat) => (
+                        <div
+                          key={cat.name}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          <span className="flex-1 text-foreground">
+                            {cat.name}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {formatDuration(cat.value)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="no-data">No categorized usage yet. Set categories below.</div>
-            )
-          )}
-        </div>
-
-        <div className="chart-card">
-          <h3>App Breakdown</h3>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => [formatDuration(value), "Time"]}
-                  contentStyle={{
-                    background: "var(--color-surface)",
-                    border: "none",
-                    borderRadius: "8px",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="no-data">No app usage recorded today</div>
-          )}
-        </div>
-      </div>
-
-      <div className="app-list-section">
-        <h3>App Usage Today</h3>
-        <div className="app-list">
-          {appsToday.length > 0 ? (
-            appsToday.map((app, index) => (
-              <div key={app.app_name} className="app-item">
-                <div
-                  className="app-icon"
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                >
-                  {app.app_name.charAt(0).toUpperCase()}
-                </div>
-                <div className="app-info">
-                  <span className="app-name">{app.app_name}</span>
-                  <div className="app-meta">
-                    <span className="app-sessions">{app.session_count} sessions</span>
-                    {editingCategory === app.app_name ? (
-                      <select
-                        className="category-select"
-                        value={app.category || ""}
-                        onChange={(e) => handleCategoryChange(app.app_name, e.target.value)}
-                        onBlur={() => setEditingCategory(null)}
-                        autoFocus
-                      >
-                        <option value="">Select category...</option>
-                        {APP_CATEGORIES.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <button
-                        className="category-badge"
-                        onClick={() => setEditingCategory(app.app_name)}
-                        style={{
-                          backgroundColor: app.category 
-                            ? CATEGORY_COLORS[app.category] + "20"
-                            : "var(--color-surface)",
-                          color: app.category
-                            ? CATEGORY_COLORS[app.category]
-                            : "var(--color-text-secondary)",
-                        }}
-                      >
-                        {app.category || "Set category"}
-                      </button>
-                    )}
                   </div>
-                </div>
-                <div className="app-usage">
-                  <div
-                    className="usage-bar"
-                    style={{
-                      width: `${Math.min((app.duration_seconds / totalToday) * 100, 100)}%`,
-                      backgroundColor: COLORS[index % COLORS.length],
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                    No categorized usage yet. Set categories below.
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">App Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {pieData.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [formatDuration(value), "Time"]}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
                     }}
                   />
-                  <span className="usage-time">{formatDuration(app.duration_seconds)}</span>
-                </div>
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
+                No app usage recorded today
               </div>
-            ))
-          ) : (
-            <div className="no-data">No apps tracked yet. Start using your computer!</div>
-          )}
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* App List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">App Usage Today</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {appsToday.length > 0 ? (
+              appsToday.map((app, index) => (
+                <div
+                  key={app.app_name}
+                  className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
+                >
+                  <div
+                    className="h-10 w-10 rounded-lg flex items-center justify-center text-white font-semibold"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  >
+                    {app.app_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{app.app_name}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        {app.session_count} sessions
+                      </span>
+                      {editingCategory === app.app_name ? (
+                        <Select
+                          value={app.category || ""}
+                          onValueChange={(value) =>
+                            handleCategoryChange(app.app_name, value)
+                          }
+                        >
+                          <SelectTrigger className="h-6 w-32 text-xs">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {APP_CATEGORIES.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "cursor-pointer text-xs",
+                            app.category && "border-transparent"
+                          )}
+                          style={
+                            app.category
+                              ? {
+                                  backgroundColor:
+                                    CATEGORY_COLORS[app.category] + "20",
+                                  color: CATEGORY_COLORS[app.category],
+                                }
+                              : undefined
+                          }
+                          onClick={() => setEditingCategory(app.app_name)}
+                        >
+                          {app.category || "Set category"}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-1.5 rounded-full min-w-[40px]"
+                      style={{
+                        width: `${Math.min((app.duration_seconds / totalToday) * 100, 100)}%`,
+                        backgroundColor: COLORS[index % COLORS.length],
+                        maxWidth: "100px",
+                      }}
+                    />
+                    <span className="text-sm font-medium min-w-[60px] text-right">
+                      {formatDuration(app.duration_seconds)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No apps tracked yet. Start using your computer!
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
-import { api } from "../services/api";
-import type { AutostartStatus } from "../types";
+import { api } from "@/services/api";
+import type { AutostartStatus } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export const Settings = () => {
   const [themePath, setThemePath] = useState<string | null>(null);
@@ -31,15 +36,14 @@ export const Settings = () => {
     } catch (error) {
       setNotificationStatus(`Error: ${error}`);
     }
-    
-    // Clear status after 5 seconds
+
     setTimeout(() => setNotificationStatus(null), 5000);
   };
 
   const handleToggleAutostart = async () => {
     setAutostartLoading(true);
     setAutostartMessage(null);
-    
+
     try {
       if (autostartStatus?.enabled) {
         const result = await api.disableAutostart();
@@ -52,101 +56,132 @@ export const Settings = () => {
     } catch (error) {
       setAutostartMessage(`Error: ${error}`);
     }
-    
+
     setAutostartLoading(false);
     setTimeout(() => setAutostartMessage(null), 5000);
   };
 
+  const shortcuts = [
+    { keys: ["Ctrl", "R"], action: "Refresh data" },
+    { keys: ["Ctrl", "1"], action: "Dashboard" },
+    { keys: ["Ctrl", "2"], action: "App Limits" },
+    { keys: ["Ctrl", "3"], action: "Settings" },
+  ];
+
   return (
-    <div className="settings">
-      <header className="section-header">
-        <div>
-          <h2>Settings</h2>
-          <p className="subtitle">Customize your Digital Wellbeing experience</p>
-        </div>
+    <div className="max-w-3xl space-y-6">
+      <header>
+        <h2 className="text-2xl font-bold">Settings</h2>
+        <p className="text-muted-foreground text-sm">
+          Customize your Digital Wellbeing experience
+        </p>
       </header>
 
-      <div className="settings-sections">
-        <section className="settings-section">
-          <h3>Startup</h3>
-          <div className="setting-item">
-            <div className="setting-info">
-              <span className="setting-label">Start at Login</span>
-              <span className="setting-description">
-                Automatically start Digital Wellbeing when you log in to track your usage in the background
-              </span>
+      <div className="space-y-6">
+        {/* Startup Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Startup</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="font-medium">Start at Login</p>
+                <p className="text-xs text-muted-foreground">
+                  Automatically start Digital Wellbeing when you log in to track
+                  your usage in the background
+                </p>
+              </div>
+              <Switch
+                checked={autostartStatus?.enabled || false}
+                onCheckedChange={handleToggleAutostart}
+                disabled={autostartLoading}
+              />
             </div>
-            <div className="setting-action">
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={autostartStatus?.enabled || false}
-                  onChange={handleToggleAutostart}
-                  disabled={autostartLoading}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-          {autostartStatus && (
-            <div className="autostart-details">
-              {autostartStatus.systemd_installed && (
-                <span className={`status-badge ${autostartStatus.systemd_running ? 'active' : 'inactive'}`}>
-                  Systemd: {autostartStatus.systemd_running ? 'Running' : 'Stopped'}
-                </span>
-              )}
-              {autostartStatus.xdg_installed && (
-                <span className="status-badge active">XDG Autostart: Enabled</span>
-              )}
-            </div>
-          )}
-          {autostartMessage && (
-            <div className={`notification-status ${autostartMessage.startsWith('Error') ? 'error' : 'success'}`}>
-              {autostartMessage}
-            </div>
-          )}
-        </section>
+            {autostartStatus && (
+              <div className="flex flex-wrap gap-2">
+                {autostartStatus.systemd_installed && (
+                  <Badge
+                    variant={autostartStatus.systemd_running ? "success" : "secondary"}
+                  >
+                    Systemd: {autostartStatus.systemd_running ? "Running" : "Stopped"}
+                  </Badge>
+                )}
+                {autostartStatus.xdg_installed && (
+                  <Badge variant="success">XDG Autostart: Enabled</Badge>
+                )}
+              </div>
+            )}
+            {autostartMessage && (
+              <div
+                className={cn(
+                  "text-sm p-3 rounded-lg",
+                  autostartMessage.startsWith("Error")
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-emerald-500/10 text-emerald-600"
+                )}
+              >
+                {autostartMessage}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <section className="settings-section">
-          <h3>Notifications</h3>
-          <div className="setting-item">
-            <div className="setting-info">
-              <span className="setting-label">Limit Notifications</span>
-              <span className="setting-description">
-                Get notified when approaching (80%) or exceeding app time limits
-              </span>
-            </div>
-            <div className="setting-action">
-              <button className="btn btn-secondary" onClick={handleTestNotification}>
+        {/* Notifications Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Notifications</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="font-medium">Limit Notifications</p>
+                <p className="text-xs text-muted-foreground">
+                  Get notified when approaching (80%) or exceeding app time
+                  limits
+                </p>
+              </div>
+              <Button variant="outline" onClick={handleTestNotification}>
                 Test Notification
-              </button>
+              </Button>
             </div>
-          </div>
-          {notificationStatus && (
-            <div className={`notification-status ${notificationStatus.startsWith('Error') ? 'error' : 'success'}`}>
-              {notificationStatus}
-            </div>
-          )}
-        </section>
+            {notificationStatus && (
+              <div
+                className={cn(
+                  "text-sm p-3 rounded-lg",
+                  notificationStatus.startsWith("Error")
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-emerald-500/10 text-emerald-600"
+                )}
+              >
+                {notificationStatus}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <section className="settings-section">
-          <h3>Theme</h3>
-          <div className="setting-item">
-            <div className="setting-info">
-              <span className="setting-label">Custom Theme</span>
-              <span className="setting-description">
-                Create your own theme by editing the theme.json file
-              </span>
+        {/* Theme Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Theme</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="font-medium">Custom Theme</p>
+                <p className="text-xs text-muted-foreground">
+                  Create your own theme by editing the theme.json file
+                </p>
+              </div>
+              <code className="text-xs bg-muted px-3 py-1.5 rounded-md">
+                {themePath || "~/.config/wellbeing/theme.json"}
+              </code>
             </div>
-            <div className="setting-value">
-              <code>{themePath || "~/.config/wellbeing/theme.json"}</code>
-            </div>
-          </div>
 
-          <div className="theme-example">
-            <h4>Example theme.json:</h4>
-            <pre>
-{`{
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Example theme.json:</p>
+              <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto">
+                {`{
   "colors": {
     "primary": "#4F46E5",
     "secondary": "#818CF8",
@@ -162,57 +197,66 @@ export const Settings = () => {
     "family": "Inter, sans-serif"
   }
 }`}
-            </pre>
-          </div>
-        </section>
+              </pre>
+            </div>
+          </CardContent>
+        </Card>
 
-        <section className="settings-section">
-          <h3>About</h3>
-          <div className="about-info">
-            <div className="about-item">
-              <span className="about-label">Version</span>
-              <span className="about-value">0.1.0</span>
+        {/* About Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">About</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2">
+                <span className="text-muted-foreground">Version</span>
+                <span className="font-medium">0.1.0</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-muted-foreground">Platform</span>
+                <span className="font-medium">Linux (Tauri + React)</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-muted-foreground">Data Location</span>
+                <span className="font-medium">~/.local/share/wellbeing/</span>
+              </div>
             </div>
-            <div className="about-item">
-              <span className="about-label">Platform</span>
-              <span className="about-value">Linux (Tauri + React)</span>
-            </div>
-            <div className="about-item">
-              <span className="about-label">Data Location</span>
-              <span className="about-value">~/.local/share/wellbeing/</span>
-            </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
-        <section className="settings-section">
-          <h3>Keyboard Shortcuts</h3>
-          <div className="shortcuts-list">
-            <div className="shortcut-item">
-              <span className="shortcut-keys">
-                <kbd>Ctrl</kbd> + <kbd>R</kbd>
-              </span>
-              <span className="shortcut-action">Refresh data</span>
+        {/* Keyboard Shortcuts Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Keyboard Shortcuts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {shortcuts.map((shortcut) => (
+                <div
+                  key={shortcut.action}
+                  className="flex items-center justify-between py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    {shortcut.keys.map((key, i) => (
+                      <span key={i} className="flex items-center gap-1">
+                        <kbd className="px-2 py-1 text-xs font-mono bg-muted rounded shadow-sm">
+                          {key}
+                        </kbd>
+                        {i < shortcut.keys.length - 1 && (
+                          <span className="text-muted-foreground">+</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {shortcut.action}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="shortcut-item">
-              <span className="shortcut-keys">
-                <kbd>Ctrl</kbd> + <kbd>1</kbd>
-              </span>
-              <span className="shortcut-action">Dashboard</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-keys">
-                <kbd>Ctrl</kbd> + <kbd>2</kbd>
-              </span>
-              <span className="shortcut-action">App Limits</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-keys">
-                <kbd>Ctrl</kbd> + <kbd>3</kbd>
-              </span>
-              <span className="shortcut-action">Settings</span>
-            </div>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
