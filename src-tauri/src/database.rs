@@ -137,6 +137,39 @@ impl Database {
         Ok(self.conn.last_insert_rowid())
     }
 
+    /// Records a usage session atomically using a transaction.
+    /// This ensures either all operations succeed or none do.
+    pub fn record_usage_atomic(&mut self, app_name: &str, duration_seconds: i64) -> SqliteResult<()> {
+        let tx = self.conn.transaction()?;
+        
+        // Get or create app
+        let app_id: i64 = match tx.query_row(
+            "SELECT id FROM apps WHERE name = ?1",
+            &[app_name],
+            |row| row.get(0),
+        ) {
+            Ok(id) => id,
+            Err(_) => {
+                tx.execute(
+                    "INSERT INTO apps (name, path) VALUES (?1, ?2)",
+                    &[app_name, ""],
+                )?;
+                tx.last_insert_rowid()
+            }
+        };
+
+        let now = Utc::now().timestamp();
+        let start_time = now - duration_seconds;
+
+        // Create session with all data at once
+        tx.execute(
+            "INSERT INTO usage_sessions (app_id, start_time, end_time, duration_seconds) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![app_id, start_time, now, duration_seconds],
+        )?;
+
+        tx.commit()
+    }
+
     pub fn start_session(&self, app_id: i64, start_time: i64) -> SqliteResult<i64> {
         self.conn.execute(
             "INSERT INTO usage_sessions (app_id, start_time, end_time, duration_seconds) VALUES (?1, ?2, ?2, 0)",
@@ -223,12 +256,12 @@ impl Database {
 
         let rows = stmt.query_map([week_ago], |row| {
             let day_str: String = row.get(0)?;
+            // Parse the date string, falling back to current time if parsing fails
             let day = chrono::NaiveDate::parse_from_str(&day_str, "%Y-%m-%d")
-                .unwrap()
-                .and_hms_opt(12, 0, 0)  // Use noon to avoid timezone edge cases
-                .unwrap()
-                .and_utc()
-                .timestamp();
+                .ok()
+                .and_then(|d| d.and_hms_opt(12, 0, 0))  // Use noon to avoid timezone edge cases
+                .map(|dt| dt.and_utc().timestamp())
+                .unwrap_or_else(|| Utc::now().timestamp());
             Ok((day, row.get(1)?))
         })?;
 

@@ -2,6 +2,16 @@ import { create } from "zustand";
 import type { Theme, DailyStats, WeeklyStats, AppLimit, HourlyUsage, CategoryUsage } from "../types";
 import { api } from "../services/api";
 
+interface LoadingState {
+  theme: boolean;
+  dailyStats: boolean;
+  weeklyStats: boolean;
+  hourlyUsage: boolean;
+  categoryUsage: boolean;
+  appLimits: boolean;
+  blockedApps: boolean;
+}
+
 interface AppState {
   theme: Theme | null;
   dailyStats: DailyStats | null;
@@ -10,9 +20,13 @@ interface AppState {
   categoryUsage: CategoryUsage[];
   appLimits: AppLimit[];
   blockedApps: string[];
-  isLoading: boolean;
+  loading: LoadingState;
   error: string | null;
   activeTab: "dashboard" | "limits" | "settings";
+
+  // Computed helper for backwards compatibility
+  isLoading: boolean;
+  isInitialLoad: () => boolean;
 
   setActiveTab: (tab: "dashboard" | "limits" | "settings") => void;
   loadTheme: () => Promise<void>;
@@ -45,6 +59,16 @@ const defaultTheme: Theme = {
   },
 };
 
+const initialLoadingState: LoadingState = {
+  theme: false,
+  dailyStats: false,
+  weeklyStats: false,
+  hourlyUsage: false,
+  categoryUsage: false,
+  appLimits: false,
+  blockedApps: false,
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   theme: defaultTheme,
   dailyStats: null,
@@ -53,77 +77,98 @@ export const useAppStore = create<AppState>((set, get) => ({
   categoryUsage: [],
   appLimits: [],
   blockedApps: [],
-  isLoading: false,
+  loading: { ...initialLoadingState },
   error: null,
   activeTab: "dashboard",
+
+  // Computed: true if ANY loading operation is in progress
+  get isLoading() {
+    const { loading } = get();
+    return Object.values(loading).some(Boolean);
+  },
+
+  // Check if this is the initial load (no data yet)
+  isInitialLoad: () => {
+    const state = get();
+    return state.dailyStats === null && state.weeklyStats === null;
+  },
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   loadTheme: async () => {
     try {
+      set((state) => ({ loading: { ...state.loading, theme: true } }));
       const theme = await api.getTheme();
-      set({ theme });
+      set((state) => ({ theme, loading: { ...state.loading, theme: false } }));
     } catch (error) {
       console.error("Failed to load theme:", error);
-      set({ theme: defaultTheme });
+      set((state) => ({ theme: defaultTheme, loading: { ...state.loading, theme: false } }));
     }
   },
 
   loadDailyStats: async () => {
     try {
-      set({ isLoading: true, error: null });
+      set((state) => ({ loading: { ...state.loading, dailyStats: true }, error: null }));
       const dailyStats = await api.getDailyUsage();
-      set({ dailyStats, isLoading: false });
+      set((state) => ({ dailyStats, loading: { ...state.loading, dailyStats: false } }));
     } catch (error) {
       console.error("Failed to load daily stats:", error);
-      set({ error: String(error), isLoading: false });
+      set((state) => ({ error: String(error), loading: { ...state.loading, dailyStats: false } }));
     }
   },
 
   loadWeeklyStats: async () => {
     try {
-      set({ isLoading: true, error: null });
+      set((state) => ({ loading: { ...state.loading, weeklyStats: true }, error: null }));
       const weeklyStats = await api.getWeeklyStats();
-      set({ weeklyStats, isLoading: false });
+      set((state) => ({ weeklyStats, loading: { ...state.loading, weeklyStats: false } }));
     } catch (error) {
       console.error("Failed to load weekly stats:", error);
-      set({ error: String(error), isLoading: false });
+      set((state) => ({ error: String(error), loading: { ...state.loading, weeklyStats: false } }));
     }
   },
 
   loadHourlyUsage: async () => {
     try {
+      set((state) => ({ loading: { ...state.loading, hourlyUsage: true } }));
       const hourlyUsage = await api.getHourlyUsage();
-      set({ hourlyUsage });
+      set((state) => ({ hourlyUsage, loading: { ...state.loading, hourlyUsage: false } }));
     } catch (error) {
       console.error("Failed to load hourly usage:", error);
+      set((state) => ({ loading: { ...state.loading, hourlyUsage: false } }));
     }
   },
 
   loadCategoryUsage: async () => {
     try {
+      set((state) => ({ loading: { ...state.loading, categoryUsage: true } }));
       const categoryUsage = await api.getCategoryUsage();
-      set({ categoryUsage });
+      set((state) => ({ categoryUsage, loading: { ...state.loading, categoryUsage: false } }));
     } catch (error) {
       console.error("Failed to load category usage:", error);
+      set((state) => ({ loading: { ...state.loading, categoryUsage: false } }));
     }
   },
 
   loadAppLimits: async () => {
     try {
+      set((state) => ({ loading: { ...state.loading, appLimits: true } }));
       const appLimits = await api.getAppLimits();
-      set({ appLimits });
+      set((state) => ({ appLimits, loading: { ...state.loading, appLimits: false } }));
     } catch (error) {
       console.error("Failed to load app limits:", error);
+      set((state) => ({ loading: { ...state.loading, appLimits: false } }));
     }
   },
 
   loadBlockedApps: async () => {
     try {
+      set((state) => ({ loading: { ...state.loading, blockedApps: true } }));
       const blockedApps = await api.getBlockedApps();
-      set({ blockedApps });
+      set((state) => ({ blockedApps, loading: { ...state.loading, blockedApps: false } }));
     } catch (error) {
       console.error("Failed to load blocked apps:", error);
+      set((state) => ({ loading: { ...state.loading, blockedApps: false } }));
     }
   },
 

@@ -43,9 +43,8 @@ async fn get_weekly_stats(state: State<'_, AppState>) -> Result<WeeklyStats, Str
 
     let days: Vec<commands::DayStats> = raw_stats.iter().map(|(timestamp, seconds)| {
         let date = chrono::DateTime::from_timestamp(*timestamp, 0)
-            .unwrap()
-            .format("%Y-%m-%d")
-            .to_string();
+            .map(|dt| dt.format("%Y-%m-%d").to_string())
+            .unwrap_or_else(|| "1970-01-01".to_string());
 
         commands::DayStats {
             date,
@@ -108,20 +107,9 @@ async fn get_all_apps(state: State<'_, AppState>) -> Result<Vec<database::App>, 
 
 #[tauri::command]
 async fn record_usage(state: State<'_, AppState>, app_name: String, duration_seconds: i64) -> Result<(), String> {
-    let db = state.db.lock().await;
-    let app_id = db.get_or_create_app(&app_name, None)
-        .map_err(|e| format!("Failed to get/create app: {}", e))?;
-
-    let now = chrono::Utc::now().timestamp();
-    let start_time = now - duration_seconds;
-
-    let session_id = db.start_session(app_id, start_time)
-        .map_err(|e| format!("Failed to start session: {}", e))?;
-
-    db.end_session(session_id, now)
-        .map_err(|e| format!("Failed to end session: {}", e))?;
-
-    Ok(())
+    let mut db = state.db.lock().await;
+    db.record_usage_atomic(&app_name, duration_seconds)
+        .map_err(|e| format!("Failed to record usage: {}", e))
 }
 
 #[tauri::command]
@@ -145,8 +133,19 @@ async fn set_app_category(state: State<'_, AppState>, app_name: String, category
         .map_err(|e| format!("Failed to set category: {}", e))
 }
 
+/// Validates an app name to prevent command injection
+/// Only allows alphanumeric characters, spaces, hyphens, underscores, and dots
+fn is_valid_app_name(name: &str) -> bool {
+    !name.is_empty() 
+        && name.len() <= 256 
+        && name.chars().all(|c| c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' || c == '.')
+}
+
 #[tauri::command]
 async fn check_app_blocked(state: State<'_, AppState>, app_name: String) -> Result<bool, String> {
+    if !is_valid_app_name(&app_name) {
+        return Err("Invalid app name".to_string());
+    }
     let db = state.db.lock().await;
     db.is_app_blocked(&app_name)
         .map_err(|e| format!("Failed to check if app blocked: {}", e))
@@ -154,6 +153,11 @@ async fn check_app_blocked(state: State<'_, AppState>, app_name: String) -> Resu
 
 #[tauri::command]
 fn block_app(app_name: String) -> Result<(), String> {
+    // Validate app name to prevent command injection
+    if !is_valid_app_name(&app_name) {
+        return Err("Invalid app name: contains disallowed characters".to_string());
+    }
+
     // On Linux, use wmctrl or xdotool to close app windows
     #[cfg(target_os = "linux")]
     {
@@ -163,8 +167,9 @@ fn block_app(app_name: String) -> Result<(), String> {
             .output();
         
         // Also try to kill the process (less aggressive approach - send SIGTERM)
+        // Using exact match with -x flag to avoid partial matches
         let _ = Command::new("pkill")
-            .args(["-f", &app_name])
+            .args(["-x", &app_name])
             .output();
     }
     

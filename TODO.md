@@ -6,41 +6,31 @@ This document tracks planned improvements for the Digital Wellbeing application.
 
 ## High Priority (Security/Bugs)
 
-### 1. [ ] Fix Command Injection Vulnerability
-- **Location:** `src-tauri/src/lib.rs:156-172`
+### 1. [x] Fix Command Injection Vulnerability
+- **Location:** `src-tauri/src/lib.rs:148-154`
 - **Issue:** The `block_app` function passes unsanitized user input to `pkill` command
 - **Risk:** Attacker could execute arbitrary shell commands via crafted app name
-- **Solution:** Validate app names against whitelist pattern `^[a-zA-Z0-9\s\-_.]+$`
+- **Solution:** ✅ Added `is_valid_app_name()` validation function that only allows alphanumeric, spaces, hyphens, underscores, dots. Changed `pkill -f` to `pkill -x` for exact matching.
 
-### 2. [ ] Enable Content Security Policy (CSP)
+### 2. [x] Enable Content Security Policy (CSP)
 - **Location:** `src-tauri/tauri.conf.json:22`
 - **Issue:** CSP is set to `null`, disabling XSS protection
-- **Solution:** Configure proper CSP rules for the application
+- **Solution:** ✅ Configured proper CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src ipc: http://ipc.localhost`
 
-### 3. [ ] Fix Race Condition in Loading State
-- **Location:** `src/store/useAppStore.ts:72-92`
+### 3. [x] Fix Race Condition in Loading State
+- **Location:** `src/store/useAppStore.ts`
 - **Issue:** Multiple async operations share single `isLoading` flag causing UI flicker
-- **Solution:** Implement granular loading states per operation:
-  ```typescript
-  interface LoadingState {
-    dailyStats: boolean;
-    weeklyStats: boolean;
-    appLimits: boolean;
-    hourlyUsage: boolean;
-    categoryUsage: boolean;
-    blockedApps: boolean;
-  }
-  ```
+- **Solution:** ✅ Implemented granular `LoadingState` interface with per-operation booleans. Added `isInitialLoad()` helper.
 
-### 4. [ ] Handle Potential Panics from Unwrap
+### 4. [x] Handle Potential Panics from Unwrap
 - **Location:** `src-tauri/src/lib.rs:45-46`, `src-tauri/src/database.rs:227`
 - **Issue:** Using `.unwrap()` on potentially `None` values can crash the app
-- **Solution:** Use proper error handling with `?` operator or `.unwrap_or_default()`
+- **Solution:** ✅ Replaced `.unwrap()` with `.unwrap_or_else()` and proper option chaining using `.ok().and_then().map().unwrap_or_else()`
 
-### 5. [ ] Add Database Transactions
+### 5. [x] Add Database Transactions
 - **Location:** `src-tauri/src/lib.rs:110-125`
 - **Issue:** Multi-step operations like `record_usage` can leave orphan data if partially fails
-- **Solution:** Wrap related operations in transactions
+- **Solution:** ✅ Added `record_usage_atomic()` method that uses SQLite transactions to ensure atomicity
 
 ---
 
@@ -286,7 +276,7 @@ These can be done quickly with minimal risk:
 4. [ ] Add `useMemo` to Dashboard computations
 5. [ ] Add dark mode toggle in Settings
 6. [ ] Add database indexes
-7. [ ] Enable CSP in tauri.conf.json
+7. [x] Enable CSP in tauri.conf.json ✅
 
 ---
 
