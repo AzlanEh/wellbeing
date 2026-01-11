@@ -31,6 +31,14 @@ export const getPercentage = (value: number, total: number): number => {
 };
 
 export const getDayName = (dateStr: string): string => {
-  const date = new Date(dateStr);
+  // Parse YYYY-MM-DD format and treat it as local time, not UTC
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-US", { weekday: "short" });
+};
+
+export const getDayNameFromTimestamp = (timestamp: number): string => {
+  // Timestamp is in seconds, convert to milliseconds
+  const date = new Date(timestamp * 1000);
   return date.toLocaleDateString("en-US", { weekday: "short" });
 };

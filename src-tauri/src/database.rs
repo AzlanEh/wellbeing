@@ -214,7 +214,7 @@ impl Database {
         let week_ago = Utc::now().timestamp() - (7 * 24 * 60 * 60);
 
         let mut stmt = self.conn.prepare(
-            "SELECT DATE(start_time, 'unixepoch') as day, SUM(duration_seconds)
+            "SELECT DATE(start_time, 'unixepoch', 'localtime') as day, SUM(duration_seconds)
              FROM usage_sessions
              WHERE start_time >= ?1
              GROUP BY day
@@ -225,7 +225,7 @@ impl Database {
             let day_str: String = row.get(0)?;
             let day = chrono::NaiveDate::parse_from_str(&day_str, "%Y-%m-%d")
                 .unwrap()
-                .and_hms_opt(0, 0, 0)
+                .and_hms_opt(12, 0, 0)  // Use noon to avoid timezone edge cases
                 .unwrap()
                 .and_utc()
                 .timestamp();
