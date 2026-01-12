@@ -9,6 +9,13 @@ import type {
   CategoryUsage,
   InstalledApp,
   AutostartStatus,
+  ExportRecord,
+  BreakSettings,
+  BreakStatus,
+  HistoricalData,
+  NotificationSettings,
+  FocusSettings,
+  FocusSession,
 } from "../types";
 
 export const api = {
@@ -90,5 +97,119 @@ export const api = {
 
   getAutostartStatus: (): Promise<AutostartStatus> => {
     return invoke("get_autostart_status");
+  },
+
+  // Export functionality
+  exportUsageData: (startDate: string, endDate: string): Promise<ExportRecord[]> => {
+    return invoke("export_usage_data", { startDate, endDate });
+  },
+
+  formatExportCsv: (records: ExportRecord[]): Promise<string> => {
+    return invoke("format_export_csv", { records });
+  },
+
+  formatExportJson: (records: ExportRecord[]): Promise<string> => {
+    return invoke("format_export_json", { records });
+  },
+
+  // Window control
+  minimizeToTray: (): Promise<void> => {
+    return invoke("minimize_to_tray");
+  },
+
+  showWindow: (): Promise<void> => {
+    return invoke("show_window");
+  },
+
+  // Break reminder
+  getBreakSettings: (): Promise<BreakSettings> => {
+    return invoke("get_break_settings");
+  },
+
+  setBreakSettings: (settings: BreakSettings): Promise<void> => {
+    return invoke("set_break_settings", { settings });
+  },
+
+  getBreakStatus: (): Promise<BreakStatus> => {
+    return invoke("get_break_status");
+  },
+
+  startBreak: (): Promise<void> => {
+    return invoke("start_break");
+  },
+
+  endBreak: (): Promise<void> => {
+    return invoke("end_break");
+  },
+
+  resetBreakTimer: (): Promise<void> => {
+    return invoke("reset_break_timer");
+  },
+
+  // Historical data
+  getHistoricalData: (startDate: string, endDate: string): Promise<HistoricalData> => {
+    return invoke("get_historical_data", { startDate, endDate });
+  },
+
+  // Notification settings
+  getNotificationSettings: (): Promise<NotificationSettings> => {
+    return invoke("get_notification_settings");
+  },
+
+  setNotificationSettings: (settings: NotificationSettings): Promise<void> => {
+    return invoke("set_notification_settings", { settings });
+  },
+
+  muteNotifications: (): Promise<void> => {
+    return invoke("mute_notifications");
+  },
+
+  unmuteNotifications: (): Promise<void> => {
+    return invoke("unmute_notifications");
+  },
+
+  isNotificationsMuted: (): Promise<boolean> => {
+    return invoke("is_notifications_muted");
+  },
+
+  // Focus mode
+  getFocusSettings: (): Promise<FocusSettings> => {
+    return invoke("get_focus_settings");
+  },
+
+  setFocusSettings: (settings: FocusSettings): Promise<void> => {
+    return invoke("set_focus_settings", { settings });
+  },
+
+  getFocusSession: (): Promise<FocusSession> => {
+    return invoke("get_focus_session");
+  },
+
+  startFocusSession: (durationMinutes?: number, blockedApps?: string[]): Promise<FocusSession> => {
+    return invoke("start_focus_session", { durationMinutes, blockedApps });
+  },
+
+  stopFocusSession: (): Promise<FocusSession> => {
+    return invoke("stop_focus_session");
+  },
+
+  extendFocusSession: (additionalMinutes: number): Promise<FocusSession | null> => {
+    return invoke("extend_focus_session", { additionalMinutes });
+  },
+
+  isFocusModeActive: (): Promise<boolean> => {
+    return invoke("is_focus_mode_active");
+  },
+
+  shouldBlockAppFocus: (appName: string): Promise<boolean> => {
+    return invoke("should_block_app_focus", { appName });
+  },
+
+  addFocusBlockedApp: (appName: string): Promise<void> => {
+    return invoke("add_focus_blocked_app", { appName });
+  },
+
+  removeFocusBlockedApp: (appName: string): Promise<void> => {
+    return invoke("remove_focus_blocked_app", { appName });
   },
 };

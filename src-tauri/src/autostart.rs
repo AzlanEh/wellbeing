@@ -76,8 +76,7 @@ X-GNOME-Autostart-Delay=5
 
 /// Install the autostart service
 pub fn install_autostart() -> Result<String, String> {
-    let binary_path = get_app_binary_path()
-        .ok_or("Could not find application binary")?;
+    let binary_path = get_app_binary_path().ok_or("Could not find application binary")?;
     let binary_str = binary_path.to_string_lossy().to_string();
 
     let mut methods_installed = Vec::new();
@@ -123,7 +122,10 @@ pub fn install_autostart() -> Result<String, String> {
     if methods_installed.is_empty() {
         Err("Failed to install autostart using any method".to_string())
     } else {
-        Ok(format!("Autostart installed via: {}", methods_installed.join(", ")))
+        Ok(format!(
+            "Autostart installed via: {}",
+            methods_installed.join(", ")
+        ))
     }
 }
 
@@ -181,7 +183,7 @@ pub fn is_autostart_enabled() -> bool {
             let output = Command::new("systemctl")
                 .args(["--user", "is-enabled", "wellbeing.service"])
                 .output();
-            
+
             if let Ok(out) = output {
                 if String::from_utf8_lossy(&out.stdout).trim() == "enabled" {
                     return true;
@@ -215,11 +217,11 @@ pub fn get_autostart_status() -> AutostartStatus {
         let service_path = systemd_dir.join("wellbeing.service");
         if service_path.exists() {
             status.systemd_installed = true;
-            
+
             let output = Command::new("systemctl")
                 .args(["--user", "is-enabled", "wellbeing.service"])
                 .output();
-            
+
             if let Ok(out) = output {
                 if String::from_utf8_lossy(&out.stdout).trim() == "enabled" {
                     status.enabled = true;
@@ -229,7 +231,7 @@ pub fn get_autostart_status() -> AutostartStatus {
             let output = Command::new("systemctl")
                 .args(["--user", "is-active", "wellbeing.service"])
                 .output();
-            
+
             if let Ok(out) = output {
                 if String::from_utf8_lossy(&out.stdout).trim() == "active" {
                     status.systemd_running = true;

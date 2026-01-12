@@ -82,6 +82,75 @@ export interface AutostartStatus {
   xdg_installed: boolean;
 }
 
+export interface ExportRecord {
+  date: string;
+  app_name: string;
+  category: string;
+  duration_seconds: number;
+  session_count: number;
+}
+
+export interface BreakSettings {
+  enabled: boolean;
+  work_minutes: number;
+  break_minutes: number;
+  show_notification: boolean;
+  play_sound: boolean;
+}
+
+export interface BreakStatus {
+  enabled: boolean;
+  minutes_worked: number;
+  work_minutes: number;
+  is_on_break: boolean;
+}
+
+export interface HistoricalData {
+  daily_totals: DayStats[];
+  app_usage: AppUsage[];
+  category_usage: CategoryUsage[];
+  total_seconds: number;
+}
+
+export interface NotificationSettings {
+  enabled: boolean;
+  warning_threshold: number; // percentage (e.g., 80)
+  exceeded_threshold: number; // percentage (e.g., 100)
+  dnd_enabled: boolean;
+  dnd_start_hour: number; // 0-23
+  dnd_end_hour: number; // 0-23
+}
+
+export interface FocusSettings {
+  blocked_apps: string[];
+  default_duration_minutes: number;
+  notify_on_start: boolean;
+  notify_on_end: boolean;
+  block_notifications: boolean;
+  schedules: FocusSchedule[];
+}
+
+export interface FocusSchedule {
+  id: string;
+  name: string;
+  days: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  start_time: string; // HH:MM format
+  end_time: string; // HH:MM format
+  blocked_apps: string[];
+  enabled: boolean;
+}
+
+export interface FocusSession {
+  is_active: boolean;
+  start_time: number | null;
+  end_time: number | null;
+  duration_minutes: number | null;
+  minutes_remaining: number | null;
+  blocked_apps: string[];
+  is_scheduled: boolean;
+  schedule_name: string | null;
+}
+
 export const APP_CATEGORIES = [
   "Productivity",
   "Development",

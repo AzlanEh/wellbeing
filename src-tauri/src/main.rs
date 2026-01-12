@@ -5,7 +5,7 @@ use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
+
     // Check for --background flag for headless mode
     if args.contains(&"--background".to_string()) || args.contains(&"-b".to_string()) {
         wellbeing_lib::run_background();

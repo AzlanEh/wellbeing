@@ -1,0 +1,76 @@
+# Maintainer: Your Name <your.email@example.com>
+pkgname=digital-wellbeing-git
+pkgver=r1.abc1234
+pkgrel=1
+pkgdesc="Desktop app for tracking screen time and app usage (git version)"
+arch=('x86_64')
+url="https://github.com/yourusername/wellbeing"
+license=('MIT')
+depends=(
+    'webkit2gtk-4.1'
+    'gtk3'
+    'libappindicator-gtk3'
+    'librsvg'
+    'libayatana-appindicator'
+)
+makedepends=(
+    'rust'
+    'cargo'
+    'nodejs'
+    'npm'
+    'pkg-config'
+    'openssl'
+    'appmenu-gtk-module'
+    'libappindicator-gtk3'
+    'librsvg'
+    'git'
+)
+optdepends=(
+    'libnotify: desktop notifications'
+)
+provides=('digital-wellbeing')
+conflicts=('digital-wellbeing' 'digital-wellbeing-bin')
+source=("git+https://github.com/yourusername/wellbeing.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/wellbeing"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+    cd "$srcdir/wellbeing"
+    
+    # Install npm dependencies
+    npm ci
+}
+
+build() {
+    cd "$srcdir/wellbeing"
+    
+    # Build the frontend
+    npm run build
+    
+    # Build the Tauri app
+    cd src-tauri
+    cargo build --release
+}
+
+package() {
+    cd "$srcdir/wellbeing"
+    
+    # Install binary
+    install -Dm755 "src-tauri/target/release/wellbeing" "$pkgdir/usr/bin/digital-wellbeing"
+    
+    # Install desktop file
+    install -Dm644 "pkg/arch/digital-wellbeing.desktop" "$pkgdir/usr/share/applications/digital-wellbeing.desktop"
+    
+    # Install icons
+    install -Dm644 "src-tauri/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/digital-wellbeing.png"
+    install -Dm644 "src-tauri/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/digital-wellbeing.png"
+    install -Dm644 "src-tauri/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/digital-wellbeing.png"
+    install -Dm644 "src-tauri/icons/icon.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/digital-wellbeing.png"
+    
+    # Install license
+    install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+}

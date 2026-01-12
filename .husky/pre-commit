@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Run lint-staged for frontend files
+npx lint-staged
+
+# Run cargo fmt check for Rust files
+if git diff --cached --name-only | grep -q "src-tauri/"; then
+  echo "Checking Rust formatting..."
+  cd src-tauri && cargo fmt --all -- --check
+  if [ $? -ne 0 ]; then
+    echo "Rust files are not formatted. Run 'cargo fmt' in src-tauri/"
+    exit 1
+  fi
+fi

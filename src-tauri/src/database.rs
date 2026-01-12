@@ -1,7 +1,8 @@
-use rusqlite::{Connection, Result as SqliteResult, OptionalExtension};
-use std::path::PathBuf;
+use crate::migrations;
 use chrono::Utc;
+use rusqlite::{Connection, OptionalExtension, Result as SqliteResult};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct App {
@@ -54,6 +55,15 @@ pub struct AppUsage {
     pub category: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportRecord {
+    pub date: String,
+    pub app_name: String,
+    pub category: String,
+    pub duration_seconds: i64,
+    pub session_count: i64,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -63,18 +73,18 @@ impl Database {
         let conn = Connection::open(db_path)?;
         let db = Database { conn };
         db.init_schema()?;
+        db.run_migrations()?;
         Ok(db)
     }
 
     fn init_schema(&self) -> SqliteResult<()> {
+        // Create core tables - these are the base schema
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS apps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 path TEXT,
                 icon_path TEXT,
-                category TEXT,
-                is_blocked INTEGER DEFAULT 0,
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )",
             [],
@@ -97,36 +107,28 @@ impl Database {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 app_id INTEGER NOT NULL UNIQUE,
                 daily_limit_minutes INTEGER NOT NULL,
-                block_when_exceeded INTEGER DEFAULT 0,
                 FOREIGN KEY (app_id) REFERENCES apps(id)
             )",
             [],
         )?;
 
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sessions_app_start ON usage_sessions(app_id, start_time)",
-            [],
-        )?;
+        Ok(())
+    }
 
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sessions_date ON usage_sessions(start_time)",
-            [],
-        )?;
-        
-        // Add new columns if they don't exist (migration)
-        let _ = self.conn.execute("ALTER TABLE apps ADD COLUMN category TEXT", []);
-        let _ = self.conn.execute("ALTER TABLE apps ADD COLUMN is_blocked INTEGER DEFAULT 0", []);
-        let _ = self.conn.execute("ALTER TABLE app_limits ADD COLUMN block_when_exceeded INTEGER DEFAULT 0", []);
-
+    /// Run database migrations to update schema
+    fn run_migrations(&self) -> SqliteResult<()> {
+        migrations::run_migrations(&self.conn)?;
         Ok(())
     }
 
     pub fn get_or_create_app(&self, name: &str, path: Option<String>) -> SqliteResult<i64> {
-        if let Some(row) = self.conn.query_row(
-            "SELECT id FROM apps WHERE name = ?1",
-            &[name],
-            |row| row.get(0),
-        ).ok() {
+        if let Some(row) = self
+            .conn
+            .query_row("SELECT id FROM apps WHERE name = ?1", &[name], |row| {
+                row.get(0)
+            })
+            .ok()
+        {
             return Ok(row);
         }
 
@@ -139,24 +141,27 @@ impl Database {
 
     /// Records a usage session atomically using a transaction.
     /// This ensures either all operations succeed or none do.
-    pub fn record_usage_atomic(&mut self, app_name: &str, duration_seconds: i64) -> SqliteResult<()> {
+    pub fn record_usage_atomic(
+        &mut self,
+        app_name: &str,
+        duration_seconds: i64,
+    ) -> SqliteResult<()> {
         let tx = self.conn.transaction()?;
-        
+
         // Get or create app
-        let app_id: i64 = match tx.query_row(
-            "SELECT id FROM apps WHERE name = ?1",
-            &[app_name],
-            |row| row.get(0),
-        ) {
-            Ok(id) => id,
-            Err(_) => {
-                tx.execute(
-                    "INSERT INTO apps (name, path) VALUES (?1, ?2)",
-                    &[app_name, ""],
-                )?;
-                tx.last_insert_rowid()
-            }
-        };
+        let app_id: i64 =
+            match tx.query_row("SELECT id FROM apps WHERE name = ?1", &[app_name], |row| {
+                row.get(0)
+            }) {
+                Ok(id) => id,
+                Err(_) => {
+                    tx.execute(
+                        "INSERT INTO apps (name, path) VALUES (?1, ?2)",
+                        &[app_name, ""],
+                    )?;
+                    tx.last_insert_rowid()
+                }
+            };
 
         let now = Utc::now().timestamp();
         let start_time = now - duration_seconds;
@@ -259,7 +264,7 @@ impl Database {
             // Parse the date string, falling back to current time if parsing fails
             let day = chrono::NaiveDate::parse_from_str(&day_str, "%Y-%m-%d")
                 .ok()
-                .and_then(|d| d.and_hms_opt(12, 0, 0))  // Use noon to avoid timezone edge cases
+                .and_then(|d| d.and_hms_opt(12, 0, 0)) // Use noon to avoid timezone edge cases
                 .map(|dt| dt.and_utc().timestamp())
                 .unwrap_or_else(|| Utc::now().timestamp());
             Ok((day, row.get(1)?))
@@ -282,13 +287,15 @@ impl Database {
     }
 
     pub fn get_limit(&self, app_name: &str) -> SqliteResult<Option<i32>> {
-        self.conn.query_row(
-            "SELECT al.daily_limit_minutes FROM app_limits al
+        self.conn
+            .query_row(
+                "SELECT al.daily_limit_minutes FROM app_limits al
              JOIN apps a ON al.app_id = a.id
              WHERE a.name = ?1",
-            &[app_name],
-            |row| row.get(0),
-        ).optional()
+                &[app_name],
+                |row| row.get(0),
+            )
+            .optional()
     }
 
     pub fn get_all_limits(&self) -> SqliteResult<Vec<AppLimit>> {
@@ -323,7 +330,12 @@ impl Database {
         Ok(())
     }
 
-    pub fn set_limit_with_block(&self, app_name: &str, minutes: i32, block_when_exceeded: bool) -> SqliteResult<()> {
+    pub fn set_limit_with_block(
+        &self,
+        app_name: &str,
+        minutes: i32,
+        block_when_exceeded: bool,
+    ) -> SqliteResult<()> {
         let app_id = self.get_or_create_app(app_name, None)?;
         self.conn.execute(
             "INSERT OR REPLACE INTO app_limits (app_id, daily_limit_minutes, block_when_exceeded) VALUES (?1, ?2, ?3)",
@@ -393,17 +405,20 @@ impl Database {
 
     pub fn is_app_blocked(&self, app_name: &str) -> SqliteResult<bool> {
         // Check if app has a limit with blocking enabled and usage exceeded
-        let result: Option<(i32, i64)> = self.conn.query_row(
-            "SELECT al.daily_limit_minutes, COALESCE(SUM(us.duration_seconds), 0)
+        let result: Option<(i32, i64)> = self
+            .conn
+            .query_row(
+                "SELECT al.daily_limit_minutes, COALESCE(SUM(us.duration_seconds), 0)
              FROM apps a
              JOIN app_limits al ON a.id = al.app_id AND al.block_when_exceeded = 1
              LEFT JOIN usage_sessions us ON a.id = us.app_id 
                 AND date(us.start_time, 'unixepoch', 'localtime') = date('now', 'localtime')
              WHERE a.name = ?1
              GROUP BY a.id",
-            rusqlite::params![app_name],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        ).optional()?;
+                rusqlite::params![app_name],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
 
         if let Some((limit_minutes, used_seconds)) = result {
             let limit_seconds = (limit_minutes as i64) * 60;
@@ -469,7 +484,7 @@ impl Database {
     /// Returns the number of deleted rows.
     pub fn cleanup_old_data(&self, retention_days: i64) -> SqliteResult<usize> {
         let cutoff = Utc::now().timestamp() - (retention_days * 24 * 60 * 60);
-        
+
         let deleted = self.conn.execute(
             "DELETE FROM usage_sessions WHERE end_time < ?1",
             rusqlite::params![cutoff],
@@ -483,17 +498,17 @@ impl Database {
 
     /// Get the count of usage sessions and approximate database size info
     pub fn get_storage_stats(&self) -> SqliteResult<(i64, i64, Option<String>)> {
-        let session_count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM usage_sessions",
-            [],
-            |row| row.get(0),
-        )?;
+        let session_count: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM usage_sessions", [], |row| row.get(0))?;
 
-        let oldest_timestamp: Option<i64> = self.conn.query_row(
-            "SELECT MIN(start_time) FROM usage_sessions",
-            [],
-            |row| row.get(0),
-        ).optional()?.flatten();
+        let oldest_timestamp: Option<i64> = self
+            .conn
+            .query_row("SELECT MIN(start_time) FROM usage_sessions", [], |row| {
+                row.get(0)
+            })
+            .optional()?
+            .flatten();
 
         let oldest_date = oldest_timestamp.map(|ts| {
             chrono::DateTime::from_timestamp(ts, 0)
@@ -502,6 +517,141 @@ impl Database {
         });
 
         Ok((session_count, oldest_timestamp.unwrap_or(0), oldest_date))
+    }
+
+    /// Export usage data within a date range
+    /// Returns: Vec of (date, app_name, category, duration_seconds, session_count)
+    pub fn export_usage_data(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> SqliteResult<Vec<ExportRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT 
+                date(us.start_time, 'unixepoch', 'localtime') as date,
+                a.name as app_name,
+                COALESCE(a.category, 'Uncategorized') as category,
+                SUM(us.duration_seconds) as total_seconds,
+                COUNT(us.id) as session_count
+             FROM usage_sessions us
+             JOIN apps a ON us.app_id = a.id
+             WHERE us.start_time >= ?1 AND us.start_time <= ?2
+             GROUP BY date, a.id
+             ORDER BY date DESC, total_seconds DESC",
+        )?;
+
+        let rows = stmt.query_map(rusqlite::params![start_timestamp, end_timestamp], |row| {
+            Ok(ExportRecord {
+                date: row.get(0)?,
+                app_name: row.get(1)?,
+                category: row.get(2)?,
+                duration_seconds: row.get(3)?,
+                session_count: row.get(4)?,
+            })
+        })?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
+    }
+
+    /// Get daily totals within a date range for historical analysis
+    /// Returns: Vec of (date_string, total_seconds)
+    pub fn get_daily_totals_in_range(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> SqliteResult<Vec<(String, i64)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT 
+                date(us.start_time, 'unixepoch', 'localtime') as date,
+                SUM(us.duration_seconds) as total_seconds
+             FROM usage_sessions us
+             WHERE us.start_time >= ?1 AND us.start_time <= ?2
+             GROUP BY date
+             ORDER BY date ASC",
+        )?;
+
+        let rows = stmt.query_map(rusqlite::params![start_timestamp, end_timestamp], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
+    }
+
+    /// Get app usage breakdown within a date range for historical analysis
+    /// Returns: Vec of AppUsage with totals for the entire range
+    pub fn get_app_usage_in_range(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> SqliteResult<Vec<AppUsage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT 
+                a.name,
+                COALESCE(SUM(us.duration_seconds), 0) as total_seconds,
+                COUNT(us.id) as session_count,
+                a.category
+             FROM usage_sessions us
+             JOIN apps a ON us.app_id = a.id
+             WHERE us.start_time >= ?1 AND us.start_time <= ?2
+             GROUP BY a.id
+             ORDER BY total_seconds DESC",
+        )?;
+
+        let rows = stmt.query_map(rusqlite::params![start_timestamp, end_timestamp], |row| {
+            Ok(AppUsage {
+                app_name: row.get(0)?,
+                duration_seconds: row.get(1)?,
+                session_count: row.get(2)?,
+                category: row.get(3)?,
+            })
+        })?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
+    }
+
+    /// Get category usage within a date range for historical analysis
+    pub fn get_category_usage_in_range(
+        &self,
+        start_timestamp: i64,
+        end_timestamp: i64,
+    ) -> SqliteResult<Vec<CategoryUsage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT 
+                COALESCE(a.category, 'Uncategorized') as category,
+                SUM(us.duration_seconds) as total_seconds,
+                COUNT(DISTINCT a.id) as app_count
+             FROM usage_sessions us
+             JOIN apps a ON us.app_id = a.id
+             WHERE us.start_time >= ?1 AND us.start_time <= ?2
+             GROUP BY COALESCE(a.category, 'Uncategorized')
+             ORDER BY total_seconds DESC",
+        )?;
+
+        let rows = stmt.query_map(rusqlite::params![start_timestamp, end_timestamp], |row| {
+            Ok(CategoryUsage {
+                category: row.get(0)?,
+                total_seconds: row.get(1)?,
+                app_count: row.get(2)?,
+            })
+        })?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
     }
 
     /// Get all blocked apps in a single query (fixes N+1 query problem)

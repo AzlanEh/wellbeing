@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstalledApp {
@@ -14,7 +14,7 @@ pub struct InstalledApp {
 /// Get all installed applications from .desktop files
 pub fn get_installed_apps() -> Vec<InstalledApp> {
     let mut apps = Vec::new();
-    
+
     // Standard locations for .desktop files
     let desktop_dirs = vec![
         PathBuf::from("/usr/share/applications"),
@@ -57,7 +57,7 @@ pub fn get_installed_apps() -> Vec<InstalledApp> {
 /// Parse a .desktop file and extract app information
 fn parse_desktop_file(path: &PathBuf) -> Option<InstalledApp> {
     let content = fs::read_to_string(path).ok()?;
-    
+
     let mut name: Option<String> = None;
     let mut exec: Option<String> = None;
     let mut icon: Option<String> = None;
@@ -70,7 +70,7 @@ fn parse_desktop_file(path: &PathBuf) -> Option<InstalledApp> {
 
     for line in content.lines() {
         let line = line.trim();
-        
+
         // Track which section we're in
         if line.starts_with('[') {
             in_desktop_entry = line == "[Desktop Entry]";
@@ -114,13 +114,19 @@ fn parse_desktop_file(path: &PathBuf) -> Option<InstalledApp> {
     }
 
     let name = name?;
-    
+
     // Skip some system utilities that aren't useful to track
     let skip_names = [
-        "Desktop", "Files", "Software", "Settings", "Terminal",
-        "Archive Manager", "Disk Usage", "System Monitor",
+        "Desktop",
+        "Files",
+        "Software",
+        "Settings",
+        "Terminal",
+        "Archive Manager",
+        "Disk Usage",
+        "System Monitor",
     ];
-    
+
     if skip_names.iter().any(|s| name.eq_ignore_ascii_case(s)) {
         return None;
     }
@@ -138,7 +144,9 @@ fn parse_desktop_file(path: &PathBuf) -> Option<InstalledApp> {
 fn clean_exec(exec: &str) -> String {
     let mut result = exec.to_string();
     // Remove common field codes
-    for code in &["%u", "%U", "%f", "%F", "%i", "%c", "%k", "%d", "%D", "%n", "%N", "%v", "%m"] {
+    for code in &[
+        "%u", "%U", "%f", "%F", "%i", "%c", "%k", "%d", "%D", "%n", "%N", "%v", "%m",
+    ] {
         result = result.replace(code, "");
     }
     result.trim().to_string()
@@ -148,60 +156,72 @@ fn clean_exec(exec: &str) -> String {
 pub fn map_category(desktop_categories: &[String]) -> Option<String> {
     for cat in desktop_categories {
         let cat_lower = cat.to_lowercase();
-        
+
         // Development
-        if cat_lower.contains("development") || cat_lower.contains("ide") || cat_lower.contains("texteditor") {
+        if cat_lower.contains("development")
+            || cat_lower.contains("ide")
+            || cat_lower.contains("texteditor")
+        {
             return Some("Development".to_string());
         }
-        
+
         // Communication
-        if cat_lower.contains("email") || cat_lower.contains("instantmessaging") 
-            || cat_lower.contains("chat") || cat_lower.contains("telephony") {
+        if cat_lower.contains("email")
+            || cat_lower.contains("instantmessaging")
+            || cat_lower.contains("chat")
+            || cat_lower.contains("telephony")
+        {
             return Some("Communication".to_string());
         }
-        
+
         // Entertainment/Media
-        if cat_lower.contains("video") || cat_lower.contains("audio") 
-            || cat_lower.contains("music") || cat_lower.contains("player") {
+        if cat_lower.contains("video")
+            || cat_lower.contains("audio")
+            || cat_lower.contains("music")
+            || cat_lower.contains("player")
+        {
             return Some("Entertainment".to_string());
         }
-        
+
         // Gaming
         if cat_lower.contains("game") {
             return Some("Gaming".to_string());
         }
-        
+
         // Graphics
         if cat_lower.contains("graphics") || cat_lower.contains("photography") {
             return Some("Productivity".to_string());
         }
-        
+
         // Office
-        if cat_lower.contains("office") || cat_lower.contains("wordprocessor")
-            || cat_lower.contains("spreadsheet") || cat_lower.contains("presentation") {
+        if cat_lower.contains("office")
+            || cat_lower.contains("wordprocessor")
+            || cat_lower.contains("spreadsheet")
+            || cat_lower.contains("presentation")
+        {
             return Some("Productivity".to_string());
         }
-        
+
         // Education
         if cat_lower.contains("education") || cat_lower.contains("science") {
             return Some("Education".to_string());
         }
-        
+
         // Network/Web
         if cat_lower.contains("webbrowser") || cat_lower.contains("network") {
             return Some("Productivity".to_string());
         }
-        
+
         // Social
         if cat_lower.contains("social") {
             return Some("Social Media".to_string());
         }
-        
+
         // Utilities
         if cat_lower.contains("utility") || cat_lower.contains("system") {
             return Some("Utilities".to_string());
         }
     }
-    
+
     None
 }

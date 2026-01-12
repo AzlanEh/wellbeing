@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Digital Wellbeing
+Comment=Track screen time and app usage
+GenericName=Screen Time Tracker
+Exec=digital-wellbeing
+Icon=digital-wellbeing
+Terminal=false
+Type=Application
+Categories=Utility;System;Monitor;
+Keywords=screen;time;tracker;wellbeing;productivity;focus;
+StartupNotify=true
+StartupWMClass=Digital Wellbeing

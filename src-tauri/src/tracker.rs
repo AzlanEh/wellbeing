@@ -1,21 +1,21 @@
+use crate::database::Database;
+use crate::window_tracker::{extract_app_name, get_active_window_name};
 use std::collections::HashMap;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
-use std::process::Command;
 use tokio::sync::Mutex;
 use tokio::time::interval;
-use crate::database::Database;
-use crate::window_tracker::{get_active_window_name, extract_app_name};
 
 /// Notification thresholds
-const WARNING_THRESHOLD: f64 = 0.8;  // 80% - send warning
+const WARNING_THRESHOLD: f64 = 0.8; // 80% - send warning
 const EXCEEDED_THRESHOLD: f64 = 1.0; // 100% - limit exceeded
 
 /// Notification types to track what we've already sent
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum NotificationType {
-    Warning,   // 80% threshold
-    Exceeded,  // 100% threshold
+    Warning,  // 80% threshold
+    Exceeded, // 100% threshold
 }
 
 pub struct UsageTracker {
@@ -46,21 +46,21 @@ impl UsageTracker {
     pub async fn start_tracking(self: Arc<Self>) {
         let mut ticker = interval(Duration::from_secs(1));
         let mut limit_check_counter: u32 = 0;
-        
+
         loop {
             ticker.tick().await;
-            
+
             // Track window every second
             if let Err(e) = self.track_window().await {
-                eprintln!("Error tracking window: {}", e);
+                tracing::error!(error = %e, "Error tracking window");
             }
-            
+
             // Check limits every 10 seconds to reduce overhead
             limit_check_counter += 1;
             if limit_check_counter >= 10 {
                 limit_check_counter = 0;
                 if let Err(e) = self.check_limits_and_notify().await {
-                    eprintln!("Error checking limits: {}", e);
+                    tracing::error!(error = %e, "Error checking limits");
                 }
             }
         }
@@ -68,7 +68,7 @@ impl UsageTracker {
 
     async fn track_window(&self) -> Result<(), String> {
         let window_name = get_active_window_name()?;
-        
+
         let app_name = match window_name {
             Some(name) => extract_app_name(&name),
             None => None,
@@ -105,12 +105,14 @@ impl UsageTracker {
                 // Skip tracking our own app
                 if app != "Digital Wellbeing" {
                     let db = self.db.lock().await;
-                    let app_id = db.get_or_create_app(app, None)
+                    let app_id = db
+                        .get_or_create_app(app, None)
                         .map_err(|e| format!("Failed to get/create app: {}", e))?;
-                    
-                    let session_id = db.start_session(app_id, now)
+
+                    let session_id = db
+                        .start_session(app_id, now)
                         .map_err(|e| format!("Failed to start session: {}", e))?;
-                    
+
                     *current_session_id = Some(session_id);
                     *session_start = Some(now);
                 } else {
@@ -140,28 +142,33 @@ impl UsageTracker {
     async fn check_limits_and_notify(&self) -> Result<(), String> {
         // Reset notifications if it's a new day
         self.reset_notifications_if_new_day().await;
-        
+
         let db = self.db.lock().await;
-        let limit_statuses = db.get_all_limit_status()
+        let limit_statuses = db
+            .get_all_limit_status()
             .map_err(|e| format!("Failed to get limit status: {}", e))?;
         drop(db);
-        
+
         for (app_name, limit_minutes, used_seconds, _block_when_exceeded) in limit_statuses {
             let limit_seconds = (limit_minutes as i64) * 60;
             if limit_seconds == 0 {
                 continue;
             }
-            
+
             let usage_ratio = used_seconds as f64 / limit_seconds as f64;
-            
+
             // Check if exceeded (100%)
             if usage_ratio >= EXCEEDED_THRESHOLD {
                 self.send_notification_if_not_sent(
                     &app_name,
                     NotificationType::Exceeded,
                     &format!("Time limit exceeded for {}", app_name),
-                    &format!("{} has exceeded its daily limit of {} minutes.", app_name, limit_minutes),
-                ).await;
+                    &format!(
+                        "{} has exceeded its daily limit of {} minutes.",
+                        app_name, limit_minutes
+                    ),
+                )
+                .await;
             }
             // Check if approaching (80%)
             else if usage_ratio >= WARNING_THRESHOLD {
@@ -171,22 +178,23 @@ impl UsageTracker {
                     NotificationType::Warning,
                     &format!("{} - {} min remaining", app_name, remaining_minutes),
                     &format!("You've used 80% of your daily limit for {}.", app_name),
-                ).await;
+                )
+                .await;
             }
         }
-        
+
         Ok(())
     }
 
     async fn reset_notifications_if_new_day(&self) {
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         let mut last_reset = self.last_reset_date.lock().await;
-        
+
         if *last_reset != today {
             let mut notifications = self.sent_notifications.lock().await;
             notifications.clear();
             *last_reset = today;
-            println!("Reset notification tracking for new day");
+            tracing::info!("Reset notification tracking for new day");
         }
     }
 
@@ -198,17 +206,21 @@ impl UsageTracker {
         body: &str,
     ) {
         let key = (app_name.to_string(), notification_type);
-        
+
         let mut notifications = self.sent_notifications.lock().await;
-        
+
         if notifications.contains_key(&key) {
             return; // Already sent
         }
-        
+
         // Send the notification
         if self.send_system_notification(title, body) {
             notifications.insert(key, true);
-            println!("Sent {:?} notification for {}", notification_type, app_name);
+            tracing::info!(
+                notification_type = ?notification_type,
+                app = %app_name,
+                "Sent notification"
+            );
         }
     }
 
@@ -225,20 +237,23 @@ impl UsageTracker {
                     body,
                 ])
                 .output();
-            
+
             match result {
                 Ok(output) => {
                     if output.status.success() {
                         return true;
                     }
-                    eprintln!("notify-send failed: {:?}", String::from_utf8_lossy(&output.stderr));
+                    tracing::warn!(
+                        stderr = %String::from_utf8_lossy(&output.stderr),
+                        "notify-send failed"
+                    );
                 }
                 Err(e) => {
-                    eprintln!("Failed to run notify-send: {}", e);
+                    tracing::error!(error = %e, "Failed to run notify-send");
                 }
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             let script = format!(
@@ -246,17 +261,15 @@ impl UsageTracker {
                 body.replace('"', r#"\""#),
                 title.replace('"', r#"\""#)
             );
-            let result = Command::new("osascript")
-                .args(["-e", &script])
-                .output();
-            
+            let result = Command::new("osascript").args(["-e", &script]).output();
+
             if let Ok(output) = result {
                 if output.status.success() {
                     return true;
                 }
             }
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             // Windows notification via PowerShell
@@ -271,18 +284,18 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
                 title.replace('"', r#"\""#),
                 body.replace('"', r#"\""#)
             );
-            
+
             let result = Command::new("powershell")
                 .args(["-Command", &script])
                 .output();
-            
+
             if let Ok(output) = result {
                 if output.status.success() {
                     return true;
                 }
             }
         }
-        
+
         false
     }
 
@@ -294,27 +307,23 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
                 &format!("{} blocked", app_name),
                 "Daily time limit exceeded. The app will be closed.",
             );
-            
+
             // Try to close windows of the app using wmctrl
-            let _ = Command::new("wmctrl")
-                .args(["-c", app_name])
-                .output();
-            
+            let _ = Command::new("wmctrl").args(["-c", app_name]).output();
+
             // Also try xdotool to close active window if it matches
             let _ = Command::new("xdotool")
                 .args(["getactivewindow", "windowclose"])
                 .output();
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             // On macOS, use osascript to quit the app
             let script = format!(r#"tell application "{}" to quit"#, app_name);
-            let _ = Command::new("osascript")
-                .args(["-e", &script])
-                .output();
+            let _ = Command::new("osascript").args(["-e", &script]).output();
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             // On Windows, use taskkill (less aggressive approach - send SIGTERM)

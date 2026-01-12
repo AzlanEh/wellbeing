@@ -23,13 +23,13 @@ interface AppState {
   blockedApps: string[];
   loading: LoadingState;
   error: string | null;
-  activeTab: "dashboard" | "limits" | "settings";
+  activeTab: "dashboard" | "history" | "limits" | "settings";
 
   // Computed helper for backwards compatibility
   isLoading: boolean;
   isInitialLoad: () => boolean;
 
-  setActiveTab: (tab: "dashboard" | "limits" | "settings") => void;
+  setActiveTab: (tab: "dashboard" | "history" | "limits" | "settings") => void;
   loadTheme: () => Promise<void>;
   loadDailyStats: () => Promise<void>;
   loadWeeklyStats: () => Promise<void>;
