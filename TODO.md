@@ -167,11 +167,20 @@ This document tracks planned improvements for the Digital Wellbeing application.
   - `src-tauri/src/migrations.rs` - 2 tests for migration ordering
   - Total: 22 Rust tests
 
-### 24. [ ] Add Integration Tests
-- **Framework:** Playwright or WebdriverIO
-- **Coverage:**
-  - Full user flows
-  - Tauri command integration
+### 24. [x] Add Integration Tests
+- **Framework:** Playwright
+- **Coverage:** ✅
+  - `e2e/navigation.spec.ts` - Navigation between tabs, keyboard shortcuts
+  - `e2e/dashboard.spec.ts` - Dashboard components, stats cards, charts
+  - `e2e/app-limits.spec.ts` - Add limit dialog, time options, hard block
+  - `e2e/settings.spec.ts` - Theme switching, notification settings
+  - `e2e/history.spec.ts` - Date range presets, stats, charts
+  - `e2e/goals.spec.ts` - Goals management, achievements
+  - `e2e/accessibility.spec.ts` - Skip links, ARIA, keyboard navigation
+- **Commands:**
+  - `npm run test:e2e` - Run all E2E tests
+  - `npm run test:e2e:ui` - Open Playwright UI
+  - `npm run test:e2e:headed` - Run in headed browser
 
 ---
 
@@ -216,25 +225,53 @@ This document tracks planned improvements for the Digital Wellbeing application.
   - Settings stored in memory with default 25min work / 5min break
   - Break Reminders card in Settings with enable toggle and duration inputs
 
-### 28. [ ] Focus Mode
-- Proactively block distracting apps
-- Scheduled focus sessions
-- Quick toggle from system tray
+### 28. [x] Focus Mode
+- ✅ Proactively block distracting apps
+- ✅ Scheduled focus sessions
+- ✅ Quick toggle from system tray
+- **Implementation:**
+  - Created `src-tauri/src/focus_mode.rs` module with FocusManager
+  - FocusSettings stores blocked apps, default duration, notification preferences, and schedules
+  - FocusSession tracks active session state, remaining time, and blocked apps
+  - Scheduled sessions with day-of-week and time range support (including overnight)
+  - Background task checks schedules and session expiry every minute
+  - Added Focus Mode UI in `src/components/FocusMode.tsx` with session controls, app blocking list, and schedule management
+  - Added tray menu items: "Start Focus (25 min)" and "Stop Focus Mode"
 
-### 29. [ ] Goal Setting
-- Set daily screen time goals (not just limits)
-- Track progress toward goals
-- Celebrate achievements
+### 29. [x] Goal Setting
+- ✅ Set daily screen time goals (not just limits)
+- ✅ Track progress toward goals
+- ✅ Celebrate achievements
+- **Implementation:**
+  - Created `src-tauri/src/goals.rs` with Goal, GoalProgress, Achievement structs
+  - Goal types: DailyLimit, AppLimit, CategoryLimit, MinimumProductive
+  - 8 achievements: FirstGoal, WeekStreak, MonthStreak, FocusMaster, ProductivityPro, DigitalMinimalist, ConsistencyKing, Perfectionist
+  - Added Tauri commands: get_goals, add_goal, update_goal, remove_goal, get_goals_progress, get_achievements, get_goals_stats
+  - Created `src/components/Goals.tsx` with stats overview, progress tracking, goals management, and achievements display
+  - Added Goals tab to Sidebar with Target icon
+  - Added keyboard shortcut Ctrl+3 for Goals tab
 
 ### 30. [ ] Multiple Profiles (not now)
 - Separate work/personal profiles
 - Different limits per profile
 - Auto-switch based on time/day
 
-### 31. [ ] Undo for Destructive Actions
-- Undo limit removal
-- Undo category changes
-- Temporary "trash" for deleted items
+### 31. [x] Undo for Destructive Actions
+- ✅ Undo limit removal
+- ✅ Undo category changes
+- ✅ Toast-based undo with 5-second timeout
+- **Implementation:**
+  - Created `src/hooks/useUndo.ts` hook for reusable undo functionality
+  - Updated `useAppStore` with:
+    - `RemovedLimitData` and `CategoryChangeData` types for undo state
+    - `setAppLimitSilent` and `setAppCategorySilent` methods (no toasts)
+    - `removeAppLimit` now returns data for undo
+    - `setAppCategory` now returns previous category for undo
+  - Updated `AppLimits.tsx`:
+    - Replaced AlertDialog with toast-based undo
+    - Removed delete confirmation in favor of immediate action + undo
+  - Updated `Dashboard.tsx`:
+    - Added `handleCategoryChange` wrapper with undo support
 
 ### 32. [x] System Tray Integration
 - ✅ Minimize to tray
@@ -308,11 +345,14 @@ This document tracks planned improvements for the Digital Wellbeing application.
 - Document breaking changes
 - Follow Keep a Changelog format
 
-### 39. [ ] Improve Documentation
-- Comprehensive README
-- Contributing guidelines
-- Architecture documentation
-- API documentation
+### 39. [x] Improve Documentation
+- ✅ Comprehensive README with features, installation, usage
+- ✅ Contributing guidelines (CONTRIBUTING.md)
+- ✅ Architecture documentation in README
+- ✅ API documentation (inline and service layer)
+- **Files:**
+  - `README.md` - Full project documentation
+  - `CONTRIBUTING.md` - Contributor guidelines
 
 ---
 
@@ -339,4 +379,4 @@ These can be done quickly with minimal risk:
 
 ---
 
-*Last updated: 2026-01-13 (Tasks 33, 34, 35, 36, 37 completed)*
+*Last updated: 2026-01-13 (Tasks 24, 31, 39 completed)*

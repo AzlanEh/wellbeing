@@ -1,3 +1,4 @@
+use crate::AppState;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -9,11 +10,32 @@ pub fn create_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
     // Create menu items
     let show_item = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
     let hide_item = MenuItem::with_id(app, "hide", "Hide Window", true, None::<&str>)?;
-    let separator = PredefinedMenuItem::separator(app)?;
+    let separator1 = PredefinedMenuItem::separator(app)?;
+    let focus_start_item = MenuItem::with_id(
+        app,
+        "focus_start",
+        "Start Focus (25 min)",
+        true,
+        None::<&str>,
+    )?;
+    let focus_stop_item =
+        MenuItem::with_id(app, "focus_stop", "Stop Focus Mode", true, None::<&str>)?;
+    let separator2 = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
     // Build the menu
-    let menu = Menu::with_items(app, &[&show_item, &hide_item, &separator, &quit_item])?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &show_item,
+            &hide_item,
+            &separator1,
+            &focus_start_item,
+            &focus_stop_item,
+            &separator2,
+            &quit_item,
+        ],
+    )?;
 
     // Create the tray icon
     let _tray = TrayIconBuilder::new()
@@ -32,13 +54,37 @@ pub fn create_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
                     let _ = window.hide();
                 }
             }
+            "focus_start" => {
+                // Start a 25-minute focus session from the tray
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Some(state) = app_handle.try_state::<AppState>() {
+                        let session = state.focus_manager.start_session(Some(25), None).await;
+                        if session.is_active {
+                            tracing::info!("Focus mode started from tray (25 min)");
+                        }
+                    }
+                });
+            }
+            "focus_stop" => {
+                // Stop focus session from the tray
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Some(state) = app_handle.try_state::<AppState>() {
+                        if state.focus_manager.is_active() {
+                            state.focus_manager.stop_session().await;
+                            tracing::info!("Focus mode stopped from tray");
+                        }
+                    }
+                });
+            }
             "quit" => {
                 app.exit(0);
             }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            // Double-click on tray icon to show/toggle window
+            // Left-click on tray icon to show/toggle window
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,

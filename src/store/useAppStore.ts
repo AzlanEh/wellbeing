@@ -13,6 +13,19 @@ interface LoadingState {
   blockedApps: boolean;
 }
 
+// Data needed to restore a removed limit
+export interface RemovedLimitData {
+  appName: string;
+  minutes: number;
+  blockWhenExceeded: boolean;
+}
+
+// Data needed to restore a category change
+export interface CategoryChangeData {
+  appName: string;
+  previousCategory: string | null;
+}
+
 interface AppState {
   theme: Theme | null;
   dailyStats: DailyStats | null;
@@ -23,13 +36,13 @@ interface AppState {
   blockedApps: string[];
   loading: LoadingState;
   error: string | null;
-  activeTab: "dashboard" | "history" | "limits" | "settings";
+  activeTab: "dashboard" | "history" | "goals" | "focus" | "limits" | "settings";
 
   // Computed helper for backwards compatibility
   isLoading: boolean;
   isInitialLoad: () => boolean;
 
-  setActiveTab: (tab: "dashboard" | "history" | "limits" | "settings") => void;
+  setActiveTab: (tab: "dashboard" | "history" | "goals" | "focus" | "limits" | "settings") => void;
   loadTheme: () => Promise<void>;
   loadDailyStats: () => Promise<void>;
   loadWeeklyStats: () => Promise<void>;
@@ -38,8 +51,15 @@ interface AppState {
   loadAppLimits: () => Promise<void>;
   loadBlockedApps: () => Promise<void>;
   setAppLimit: (appName: string, minutes: number, blockWhenExceeded?: boolean) => Promise<void>;
-  removeAppLimit: (appName: string) => Promise<void>;
-  setAppCategory: (appName: string, category: string) => Promise<void>;
+  removeAppLimit: (appName: string) => Promise<RemovedLimitData | null>;
+  setAppCategory: (appName: string, category: string) => Promise<CategoryChangeData | null>;
+  // Silent versions for undo (no toasts)
+  setAppLimitSilent: (appName: string, minutes: number, blockWhenExceeded?: boolean) => Promise<void>;
+  setAppCategorySilent: (appName: string, category: string) => Promise<void>;
+  // Helper to get limit data before removal
+  getAppLimit: (appName: string) => AppLimit | undefined;
+  // Helper to get current category
+  getAppCategory: (appName: string) => string | null;
   refreshAll: () => Promise<void>;
 }
 
@@ -190,34 +210,100 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   removeAppLimit: async (appName) => {
+    // Get limit data before removal for undo
+    const limit = get().appLimits.find(
+      (l) => l.app_name.toLowerCase() === appName.toLowerCase()
+    );
+    
+    if (!limit) {
+      toast.error("Limit not found");
+      return null;
+    }
+
+    const removedData: RemovedLimitData = {
+      appName: limit.app_name,
+      minutes: limit.daily_limit_minutes,
+      blockWhenExceeded: limit.block_when_exceeded,
+    };
+
     try {
       await api.removeAppLimit(appName);
       await get().loadAppLimits();
-      toast.success(`Limit removed for ${appName}`);
+      // Return the data for undo - toast handled by component
+      return removedData;
     } catch (error) {
       console.error("Failed to remove app limit:", error);
       toast.error("Failed to remove app limit", {
         description: String(error),
       });
       set({ error: String(error) });
+      return null;
     }
   },
 
   setAppCategory: async (appName, category) => {
+    // Get previous category for undo
+    const app = get().dailyStats?.apps.find(
+      (a) => a.app_name.toLowerCase() === appName.toLowerCase()
+    );
+    const previousCategory = app?.category || null;
+
+    const changeData: CategoryChangeData = {
+      appName,
+      previousCategory,
+    };
+
     try {
       await api.setAppCategory(appName, category);
       await get().loadDailyStats();
       await get().loadCategoryUsage();
-      toast.success(`Category updated`, {
-        description: `${appName} set to ${category}`,
-      });
+      // Return the data for undo - toast handled by component
+      return changeData;
     } catch (error) {
       console.error("Failed to set app category:", error);
       toast.error("Failed to set category", {
         description: String(error),
       });
       set({ error: String(error) });
+      return null;
     }
+  },
+
+  // Silent versions for undo operations (no toasts)
+  setAppLimitSilent: async (appName, minutes, blockWhenExceeded = false) => {
+    try {
+      await api.setAppLimit(appName, minutes, blockWhenExceeded);
+      await get().loadAppLimits();
+    } catch (error) {
+      console.error("Failed to set app limit:", error);
+      throw error;
+    }
+  },
+
+  setAppCategorySilent: async (appName, category) => {
+    try {
+      await api.setAppCategory(appName, category);
+      await get().loadDailyStats();
+      await get().loadCategoryUsage();
+    } catch (error) {
+      console.error("Failed to set app category:", error);
+      throw error;
+    }
+  },
+
+  // Helper to get current limit data
+  getAppLimit: (appName) => {
+    return get().appLimits.find(
+      (l) => l.app_name.toLowerCase() === appName.toLowerCase()
+    );
+  },
+
+  // Helper to get current category
+  getAppCategory: (appName) => {
+    const app = get().dailyStats?.apps.find(
+      (a) => a.app_name.toLowerCase() === appName.toLowerCase()
+    );
+    return app?.category || null;
   },
 
   refreshAll: async () => {

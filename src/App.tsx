@@ -6,6 +6,8 @@ import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { History } from "@/components/History";
+import { Goals } from "@/components/Goals";
+import { FocusMode } from "@/components/FocusMode";
 import { AppLimits } from "@/components/AppLimits";
 import { Settings } from "@/components/Settings";
 import "@/index.css";
@@ -77,9 +79,17 @@ function App() {
             break;
           case "3":
             e.preventDefault();
-            setActiveTab("limits");
+            setActiveTab("goals");
             break;
           case "4":
+            e.preventDefault();
+            setActiveTab("focus");
+            break;
+          case "5":
+            e.preventDefault();
+            setActiveTab("limits");
+            break;
+          case "6":
             e.preventDefault();
             setActiveTab("settings");
             break;
@@ -100,6 +110,10 @@ function App() {
         return <Dashboard />;
       case "history":
         return <History />;
+      case "goals":
+        return <Goals />;
+      case "focus":
+        return <FocusMode />;
       case "limits":
         return <AppLimits />;
       case "settings":

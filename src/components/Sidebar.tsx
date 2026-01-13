@@ -1,4 +1,4 @@
-import { LayoutDashboard, Clock, Settings, Minus, History, Activity } from "lucide-react";
+import { LayoutDashboard, Clock, Settings, Minus, History, Activity, Target, Focus } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDuration } from "@/utils/formatters";
 import { api } from "@/services/api";
@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 const tabs = [
   { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
   { id: "history" as const, label: "History", icon: History },
+  { id: "goals" as const, label: "Goals", icon: Target },
+  { id: "focus" as const, label: "Focus Mode", icon: Focus },
   { id: "limits" as const, label: "App Limits", icon: Clock },
   { id: "settings" as const, label: "Settings", icon: Settings },
 ];

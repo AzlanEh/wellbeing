@@ -16,6 +16,10 @@ import type {
   NotificationSettings,
   FocusSettings,
   FocusSession,
+  Goal,
+  GoalProgress,
+  Achievement,
+  GoalsStats,
 } from "../types";
 
 export const api = {
@@ -211,5 +215,34 @@ export const api = {
 
   removeFocusBlockedApp: (appName: string): Promise<void> => {
     return invoke("remove_focus_blocked_app", { appName });
+  },
+
+  // Goals
+  getGoals: (): Promise<Goal[]> => {
+    return invoke("get_goals");
+  },
+
+  addGoal: (goal: Goal): Promise<void> => {
+    return invoke("add_goal", { goal });
+  },
+
+  updateGoal: (goal: Goal): Promise<void> => {
+    return invoke("update_goal", { goal });
+  },
+
+  removeGoal: (goalId: string): Promise<void> => {
+    return invoke("remove_goal", { goalId });
+  },
+
+  getGoalsProgress: (): Promise<GoalProgress[]> => {
+    return invoke("get_goals_progress");
+  },
+
+  getAchievements: (): Promise<Achievement[]> => {
+    return invoke("get_achievements");
+  },
+
+  getGoalsStats: (): Promise<GoalsStats> => {
+    return invoke("get_goals_stats");
   },
 };

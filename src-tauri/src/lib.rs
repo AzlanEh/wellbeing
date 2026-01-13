@@ -5,6 +5,7 @@ mod commands;
 mod database;
 mod error;
 mod focus_mode;
+mod goals;
 mod migrations;
 mod notification_settings;
 mod theme;
@@ -18,8 +19,10 @@ use break_reminder::{BreakReminder, BreakSettings};
 use commands::{DailyStats, DayStats, WeeklyStats};
 use database::{AppLimit, AppUsage, CategoryUsage, Database, ExportRecord, HourlyUsage};
 use error::WellbeingError;
-use focus_mode::{FocusManager, FocusSchedule, FocusSession, FocusSettings};
+use focus_mode::{FocusManager, FocusSession, FocusSettings};
+use goals::{Achievement, Goal, GoalProgress, GoalsState};
 use notification_settings::{NotificationManager, NotificationSettings};
+use std::collections::HashMap;
 use std::process::Command;
 use std::sync::Arc;
 use tauri::State;
@@ -34,6 +37,7 @@ pub struct AppState {
     pub break_reminder: Arc<BreakReminder>,
     pub notification_manager: Arc<NotificationManager>,
     pub focus_manager: Arc<FocusManager>,
+    pub goals_state: Arc<Mutex<GoalsState>>,
 }
 
 #[tauri::command]
@@ -574,6 +578,94 @@ async fn remove_focus_blocked_app(state: State<'_, AppState>, app_name: String) 
     Ok(())
 }
 
+// Goals commands
+#[tauri::command]
+async fn get_goals(state: State<'_, AppState>) -> CmdResult<Vec<Goal>> {
+    let goals_state = state.goals_state.lock().await;
+    Ok(goals_state.goals.clone())
+}
+
+#[tauri::command]
+async fn add_goal(state: State<'_, AppState>, goal: Goal) -> CmdResult<()> {
+    let mut goals_state = state.goals_state.lock().await;
+    goals_state.add_goal(goal);
+    Ok(())
+}
+
+#[tauri::command]
+async fn update_goal(state: State<'_, AppState>, goal: Goal) -> CmdResult<()> {
+    let mut goals_state = state.goals_state.lock().await;
+    goals_state.update_goal(goal);
+    Ok(())
+}
+
+#[tauri::command]
+async fn remove_goal(state: State<'_, AppState>, goal_id: String) -> CmdResult<()> {
+    let mut goals_state = state.goals_state.lock().await;
+    goals_state.remove_goal(&goal_id);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_goals_progress(state: State<'_, AppState>) -> CmdResult<Vec<GoalProgress>> {
+    let db = state.db.lock().await;
+    let goals_state = state.goals_state.lock().await;
+
+    // Get today's usage data
+    let apps = db.get_daily_usage()?;
+    let categories = db.get_category_usage()?;
+
+    let total_daily_minutes = (apps.iter().map(|a| a.duration_seconds).sum::<i64>() / 60) as i32;
+
+    // Build usage maps
+    let app_usage: HashMap<String, i32> = apps
+        .iter()
+        .map(|a| (a.app_name.clone(), (a.duration_seconds / 60) as i32))
+        .collect();
+
+    let category_usage: HashMap<String, i32> = categories
+        .iter()
+        .map(|c| (c.category.clone(), (c.total_seconds / 60) as i32))
+        .collect();
+
+    // Calculate progress for each goal
+    let today = chrono::Local::now().date_naive();
+    let progress: Vec<GoalProgress> = goals_state
+        .get_goals_for_day(today)
+        .iter()
+        .map(|goal| {
+            goals::calculate_goal_progress(goal, total_daily_minutes, &app_usage, &category_usage)
+        })
+        .collect();
+
+    Ok(progress)
+}
+
+#[tauri::command]
+async fn get_achievements(state: State<'_, AppState>) -> CmdResult<Vec<Achievement>> {
+    let goals_state = state.goals_state.lock().await;
+    Ok(goals_state.get_achievements())
+}
+
+#[tauri::command]
+async fn get_goals_stats(state: State<'_, AppState>) -> CmdResult<GoalsStats> {
+    let goals_state = state.goals_state.lock().await;
+    Ok(GoalsStats {
+        current_streak: goals_state.current_streak,
+        longest_streak: goals_state.longest_streak,
+        total_goals_met: goals_state.total_goals_met,
+        focus_sessions_completed: goals_state.focus_sessions_completed,
+    })
+}
+
+#[derive(serde::Serialize)]
+struct GoalsStats {
+    current_streak: i32,
+    longest_streak: i32,
+    total_goals_met: i32,
+    focus_sessions_completed: i32,
+}
+
 #[derive(serde::Serialize)]
 struct BreakStatus {
     enabled: bool,
@@ -655,6 +747,9 @@ pub fn run() {
     // Create focus manager
     let focus_manager = Arc::new(FocusManager::new());
 
+    // Create goals state
+    let goals_state = Arc::new(Mutex::new(GoalsState::new()));
+
     // Clone db for background tracker
     let tracker_db = Arc::clone(&db);
     let break_reminder_clone = Arc::clone(&break_reminder);
@@ -665,7 +760,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(AppState { db, break_reminder, notification_manager, focus_manager })
+        .manage(AppState { db, break_reminder, notification_manager, focus_manager, goals_state })
         .setup(move |app| {
             // Initialize system tray
             if let Err(e) = tray::create_tray(app.handle()) {
@@ -782,7 +877,14 @@ pub fn run() {
             is_focus_mode_active,
             should_block_app_focus,
             add_focus_blocked_app,
-            remove_focus_blocked_app
+            remove_focus_blocked_app,
+            get_goals,
+            add_goal,
+            update_goal,
+            remove_goal,
+            get_goals_progress,
+            get_achievements,
+            get_goals_stats
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

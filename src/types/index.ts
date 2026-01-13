@@ -151,6 +151,58 @@ export interface FocusSession {
   schedule_name: string | null;
 }
 
+// Goal types
+export type GoalType =
+  | { daily_limit: Record<string, never> }
+  | { app_limit: { app_name: string } }
+  | { category_limit: { category: string } }
+  | { minimum_productive: { category: string } };
+
+export interface Goal {
+  id: string;
+  name: string;
+  goal_type: GoalType;
+  target_minutes: number;
+  days: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday (empty = every day)
+  enabled: boolean;
+  created_at: string;
+}
+
+export type GoalStatus =
+  | "on_track"
+  | "warning"
+  | "exceeded"
+  | "achieved"
+  | "not_started";
+
+export interface GoalProgress {
+  goal_id: string;
+  goal_name: string;
+  goal_type: GoalType;
+  target_minutes: number;
+  current_minutes: number;
+  progress_percent: number;
+  is_met: boolean;
+  status: GoalStatus;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned_at: string | null;
+  progress: number;
+  target: number;
+}
+
+export interface GoalsStats {
+  current_streak: number;
+  longest_streak: number;
+  total_goals_met: number;
+  focus_sessions_completed: number;
+}
+
 export const APP_CATEGORIES = [
   "Productivity",
   "Development",

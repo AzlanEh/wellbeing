@@ -4,7 +4,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="Desktop app for tracking screen time and app usage"
 arch=('x86_64')
-url="https://github.com/yourusername/wellbeing"
+url="https://github.com/Azlaneh/wellbeing"
 license=('MIT')
 depends=(
     'webkit2gtk-4.1'
@@ -29,42 +29,45 @@ optdepends=(
 )
 provides=('digital-wellbeing')
 conflicts=('digital-wellbeing-git' 'digital-wellbeing-bin')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/yourusername/wellbeing/archive/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+source=()
+sha256sums=()
+
+# Build from local source
+_srcdir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 prepare() {
-    cd "$srcdir/wellbeing-$pkgver"
-    
+    cd "$_srcdir"
+
     # Install npm dependencies
     npm ci
 }
 
 build() {
-    cd "$srcdir/wellbeing-$pkgver"
-    
+    cd "$_srcdir"
+
     # Build the frontend
     npm run build
-    
+
     # Build the Tauri app
     cd src-tauri
     cargo build --release
 }
 
 package() {
-    cd "$srcdir/wellbeing-$pkgver"
-    
+    cd "$_srcdir"
+
     # Install binary
     install -Dm755 "src-tauri/target/release/wellbeing" "$pkgdir/usr/bin/digital-wellbeing"
-    
+
     # Install desktop file
     install -Dm644 "pkg/arch/digital-wellbeing.desktop" "$pkgdir/usr/share/applications/digital-wellbeing.desktop"
-    
+
     # Install icons
     install -Dm644 "src-tauri/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/digital-wellbeing.png"
     install -Dm644 "src-tauri/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/digital-wellbeing.png"
     install -Dm644 "src-tauri/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/digital-wellbeing.png"
     install -Dm644 "src-tauri/icons/icon.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/digital-wellbeing.png"
-    
+
     # Install license
     install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
 }

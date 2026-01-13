@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Clock, Ban, Lock, Search, AlertCircle, Shield } from "lucide-react";
+import { toast } from "sonner";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDuration } from "@/utils/formatters";
 import { api } from "@/services/api";
@@ -18,17 +19,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+
+const UNDO_TIMEOUT = 5000; // 5 seconds to undo
 
 export const AppLimits = () => {
   const {
@@ -37,6 +30,7 @@ export const AppLimits = () => {
     blockedApps,
     setAppLimit,
     removeAppLimit,
+    setAppLimitSilent,
     loadBlockedApps,
   } = useAppStore();
   const [newLimit, setNewLimit] = useState({
@@ -48,7 +42,6 @@ export const AppLimits = () => {
   const [customAppName, setCustomAppName] = useState("");
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const trackedApps = dailyStats?.apps || [];
 
@@ -87,13 +80,31 @@ export const AppLimits = () => {
   };
 
   const handleRemove = async (appName: string) => {
-    setDeleteConfirm(appName);
-  };
-
-  const confirmRemove = async () => {
-    if (deleteConfirm) {
-      await removeAppLimit(deleteConfirm);
-      setDeleteConfirm(null);
+    // Remove the limit and get the data for potential undo
+    const removedData = await removeAppLimit(appName);
+    
+    if (removedData) {
+      // Show toast with undo option
+      toast(`Limit removed for ${removedData.appName}`, {
+        duration: UNDO_TIMEOUT,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await setAppLimitSilent(
+                removedData.appName,
+                removedData.minutes,
+                removedData.blockWhenExceeded
+              );
+              toast.success("Limit restored");
+            } catch (error) {
+              toast.error("Failed to restore limit", {
+                description: String(error),
+              });
+            }
+          },
+        },
+      });
     }
   };
 
@@ -546,28 +557,6 @@ export const AppLimits = () => {
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Limit?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the daily usage limit for <strong className="text-foreground">{deleteConfirm}</strong>. 
-              You can always add it back later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmRemove}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

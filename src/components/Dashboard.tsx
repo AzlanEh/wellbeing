@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import { useAppStore } from "@/store/useAppStore";
 import { StatsCards } from "./dashboard/StatsCards";
 import { UsageChart } from "./dashboard/UsageChart";
@@ -8,6 +9,8 @@ import { CATEGORY_COLORS } from "./dashboard/constants";
 import { LottieAnimation } from "@/components/LottieAnimation";
 import catAnimation from "@/assets/animations/cat.json";
 
+const UNDO_TIMEOUT = 5000;
+
 export const Dashboard = () => {
   const {
     dailyStats,
@@ -16,6 +19,7 @@ export const Dashboard = () => {
     categoryUsage,
     isLoading,
     setAppCategory,
+    setAppCategorySilent,
   } = useAppStore();
 
   // Memoized computations
@@ -89,6 +93,39 @@ export const Dashboard = () => {
     [categoryUsage]
   );
 
+  // Wrapper for category change with undo support
+  const handleCategoryChange = useCallback(
+    async (appName: string, category: string) => {
+      const changeData = await setAppCategory(appName, category);
+      
+      if (changeData) {
+        const previousCategory = changeData.previousCategory;
+        toast(`Category set to ${category}`, {
+          description: appName,
+          duration: UNDO_TIMEOUT,
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              try {
+                if (previousCategory) {
+                  await setAppCategorySilent(appName, previousCategory);
+                  toast.success(`Restored to ${previousCategory}`);
+                } else {
+                  toast.info("No previous category to restore");
+                }
+              } catch (error) {
+                toast.error("Failed to restore category", {
+                  description: String(error),
+                });
+              }
+            },
+          },
+        });
+      }
+    },
+    [setAppCategory, setAppCategorySilent]
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -132,7 +169,7 @@ export const Dashboard = () => {
       <AppUsageList
         apps={appsToday}
         totalToday={totalToday}
-        onCategoryChange={setAppCategory}
+        onCategoryChange={handleCategoryChange}
       />
     </div>
   );
