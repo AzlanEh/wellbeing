@@ -6,6 +6,7 @@ mod database;
 mod error;
 mod focus_mode;
 mod goals;
+mod limit_popup;
 mod migrations;
 mod notification_settings;
 mod theme;
@@ -21,6 +22,7 @@ use database::{AppLimit, AppUsage, CategoryUsage, Database, ExportRecord, Hourly
 use error::WellbeingError;
 use focus_mode::{FocusManager, FocusSession, FocusSettings};
 use goals::{Achievement, Goal, GoalProgress, GoalsState};
+use limit_popup::EmergencyAccessManager;
 use notification_settings::{NotificationManager, NotificationSettings};
 use std::collections::HashMap;
 use std::process::Command;
@@ -38,6 +40,8 @@ pub struct AppState {
     pub notification_manager: Arc<NotificationManager>,
     pub focus_manager: Arc<FocusManager>,
     pub goals_state: Arc<Mutex<GoalsState>>,
+    pub emergency_access: Arc<EmergencyAccessManager>,
+    pub tracker: Arc<Mutex<UsageTracker>>,
 }
 
 #[tauri::command]
@@ -201,6 +205,54 @@ fn block_app(app_name: String) -> CmdResult<()> {
 async fn get_blocked_apps(state: State<'_, AppState>) -> CmdResult<Vec<String>> {
     let db = state.db.lock().await;
     Ok(db.get_blocked_apps()?)
+}
+
+// Emergency access commands for limit popup
+#[tauri::command]
+async fn grant_emergency_access(state: State<'_, AppState>, app_name: String) -> CmdResult<i64> {
+    if !is_valid_app_name(&app_name) {
+        return Err(WellbeingError::InvalidAppName(app_name));
+    }
+    let expiry = state.emergency_access.grant_access(&app_name).await;
+
+    // Close the limit popup window
+    let tracker = state.tracker.lock().await;
+    tracker.close_limit_popup();
+
+    Ok(expiry)
+}
+
+#[tauri::command]
+async fn get_emergency_access_remaining(
+    state: State<'_, AppState>,
+    app_name: String,
+) -> CmdResult<i64> {
+    if !is_valid_app_name(&app_name) {
+        return Err(WellbeingError::InvalidAppName(app_name));
+    }
+    Ok(state.emergency_access.get_remaining_time(&app_name).await)
+}
+
+#[tauri::command]
+async fn has_emergency_access(state: State<'_, AppState>, app_name: String) -> CmdResult<bool> {
+    if !is_valid_app_name(&app_name) {
+        return Err(WellbeingError::InvalidAppName(app_name));
+    }
+    Ok(state.emergency_access.has_active_access(&app_name).await)
+}
+
+#[tauri::command]
+async fn quit_blocked_app(state: State<'_, AppState>, app_name: String) -> CmdResult<()> {
+    if !is_valid_app_name(&app_name) {
+        return Err(WellbeingError::InvalidAppName(app_name));
+    }
+
+    // Close the limit popup window first
+    let tracker = state.tracker.lock().await;
+    tracker.close_limit_popup();
+    tracker.block_app(&app_name);
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -699,11 +751,14 @@ pub fn run_background() {
     let db = Database::new(db_path).expect("Failed to initialize database");
     let db = Arc::new(Mutex::new(db));
 
+    // Create emergency access manager (limited functionality in background mode)
+    let emergency_access = Arc::new(EmergencyAccessManager::new());
+
     // Create tokio runtime for async operations
     let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
 
     rt.block_on(async {
-        let tracker = Arc::new(UsageTracker::new(db));
+        let tracker = Arc::new(UsageTracker::new(db, emergency_access));
         tracing::info!("Background tracker started. Press Ctrl+C to stop.");
 
         // Start tracking - this runs indefinitely
@@ -750,33 +805,57 @@ pub fn run() {
     // Create goals state
     let goals_state = Arc::new(Mutex::new(GoalsState::new()));
 
-    // Clone db for background tracker
+    // Create emergency access manager
+    let emergency_access = Arc::new(EmergencyAccessManager::new());
+
+    // Clone for background tasks
     let tracker_db = Arc::clone(&db);
+    let cleanup_db = Arc::clone(&db);
+    let tracker_emergency = Arc::clone(&emergency_access);
     let break_reminder_clone = Arc::clone(&break_reminder);
     let focus_manager_clone = Arc::clone(&focus_manager);
+
+    // Create tracker (will be set with app handle in setup)
+    // This tracker is used for state management (emergency access commands)
+    let tracker = Arc::new(Mutex::new(UsageTracker::new(
+        Arc::clone(&db),
+        Arc::clone(&emergency_access),
+    )));
+    let tracker_for_state = Arc::clone(&tracker);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(AppState { db, break_reminder, notification_manager, focus_manager, goals_state })
+        .manage(AppState {
+            db,
+            break_reminder,
+            notification_manager,
+            focus_manager,
+            goals_state,
+            emergency_access: Arc::clone(&tracker_emergency),
+            tracker: tracker_for_state,
+        })
         .setup(move |app| {
             // Initialize system tray
             if let Err(e) = tray::create_tray(app.handle()) {
                 tracing::error!(error = %e, "Failed to create system tray");
             }
 
-            // Start background usage tracking using Tauri's async runtime
-            let tracker = Arc::new(UsageTracker::new(tracker_db.clone()));
-            let tracker_clone = Arc::clone(&tracker);
+            // Create the background tracker with app handle
+            let handle = app.handle().clone();
+            let emergency_for_tracker = Arc::clone(&tracker_emergency);
 
             tauri::async_runtime::spawn(async move {
-                tracker_clone.start_tracking().await;
+                // Create a new tracker instance for the background task
+                let mut background_tracker = UsageTracker::new(tracker_db, emergency_for_tracker);
+                background_tracker.set_app_handle(handle);
+
+                Arc::new(background_tracker).start_tracking().await;
             });
 
             // Run data cleanup on startup (delete data older than 90 days)
-            let cleanup_db = Arc::clone(&tracker_db);
             tauri::async_runtime::spawn(async move {
                 let db = cleanup_db.lock().await;
                 match db.cleanup_old_data(DEFAULT_RETENTION_DAYS) {
@@ -844,6 +923,10 @@ pub fn run() {
             check_app_blocked,
             block_app,
             get_blocked_apps,
+            grant_emergency_access,
+            get_emergency_access_remaining,
+            has_emergency_access,
+            quit_blocked_app,
             get_installed_apps,
             send_test_notification,
             enable_autostart,

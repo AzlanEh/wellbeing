@@ -1,9 +1,11 @@
 use crate::database::Database;
+use crate::limit_popup::EmergencyAccessManager;
 use crate::window_tracker::{extract_app_name, get_active_window_name};
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::Mutex;
 use tokio::time::interval;
 
@@ -28,10 +30,16 @@ pub struct UsageTracker {
     sent_notifications: Arc<Mutex<HashMap<(String, NotificationType), bool>>>,
     /// The date we last reset notifications (to reset daily)
     last_reset_date: Arc<Mutex<String>>,
+    /// Emergency access manager for temporary access grants
+    emergency_access: Arc<EmergencyAccessManager>,
+    /// Tauri app handle for creating windows
+    app_handle: Option<AppHandle>,
+    /// Track if popup is currently shown for an app (to avoid multiple popups)
+    popup_shown_for: Arc<Mutex<Option<String>>>,
 }
 
 impl UsageTracker {
-    pub fn new(db: Arc<Mutex<Database>>) -> Self {
+    pub fn new(db: Arc<Mutex<Database>>, emergency_access: Arc<EmergencyAccessManager>) -> Self {
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         UsageTracker {
             db,
@@ -40,7 +48,30 @@ impl UsageTracker {
             session_start: Arc::new(Mutex::new(None)),
             sent_notifications: Arc::new(Mutex::new(HashMap::new())),
             last_reset_date: Arc::new(Mutex::new(today)),
+            emergency_access,
+            app_handle: None,
+            popup_shown_for: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Set the Tauri app handle for creating windows
+    pub fn set_app_handle(&mut self, handle: AppHandle) {
+        self.app_handle = Some(handle);
+    }
+
+    /// Get a clone of the app handle
+    pub fn app_handle_clone(&self) -> Option<AppHandle> {
+        self.app_handle.clone()
+    }
+
+    /// Get a reference to the emergency access manager
+    pub fn emergency_access(&self) -> &Arc<EmergencyAccessManager> {
+        &self.emergency_access
+    }
+
+    /// Get a clone of the database Arc
+    pub fn db_clone(&self) -> Arc<Mutex<Database>> {
+        Arc::clone(&self.db)
     }
 
     pub async fn start_tracking(self: Arc<Self>) {
@@ -82,12 +113,29 @@ impl UsageTracker {
 
         // Check if the current app should be blocked
         if let Some(ref app) = app_name {
-            if app != "Digital Wellbeing" {
+            if app != "Digital Wellbeing" && app != "limit-popup" {
                 let db = self.db.lock().await;
-                if db.is_app_blocked(app).unwrap_or(false) {
-                    drop(db); // Release lock before blocking
-                    self.block_app(app);
+                let is_blocked = db.is_app_blocked(app).unwrap_or(false);
+                drop(db); // Release lock before further operations
+
+                if is_blocked {
+                    // Check if app has emergency access
+                    if self.emergency_access.has_active_access(app).await {
+                        // Allow the app, emergency access is active
+                        tracing::debug!(app = %app, "App has emergency access, allowing");
+                    } else {
+                        // Show limit popup instead of blocking immediately
+                        self.show_limit_popup(app).await;
+                    }
                 }
+            }
+        }
+
+        // Clear popup tracking when switching away from blocked app
+        if let Some(ref popup_app) = *self.popup_shown_for.lock().await {
+            if app_name.as_ref() != Some(popup_app) {
+                // User switched to a different app, clear popup state
+                *self.popup_shown_for.lock().await = None;
             }
         }
 
@@ -299,7 +347,80 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
         false
     }
 
-    fn block_app(&self, app_name: &str) {
+    /// Show the limit reached popup window for a blocked app
+    async fn show_limit_popup(&self, app_name: &str) {
+        // Check if popup is already shown for this app
+        {
+            let popup_shown = self.popup_shown_for.lock().await;
+            if popup_shown.as_ref() == Some(&app_name.to_string()) {
+                return; // Popup already shown for this app
+            }
+        }
+
+        // Mark popup as shown for this app
+        {
+            let mut popup_shown = self.popup_shown_for.lock().await;
+            *popup_shown = Some(app_name.to_string());
+        }
+
+        if let Some(ref handle) = self.app_handle {
+            // Check if popup window already exists
+            if handle.get_webview_window("limit-popup").is_some() {
+                // Close existing popup first
+                if let Some(window) = handle.get_webview_window("limit-popup") {
+                    let _ = window.close();
+                }
+            }
+
+            // Create URL with app name as query parameter
+            let url = format!("/limit-popup?app={}", urlencoding::encode(app_name));
+
+            // Create the popup window
+            match WebviewWindowBuilder::new(handle, "limit-popup", WebviewUrl::App(url.into()))
+                .title("App Limit Reached")
+                .inner_size(420.0, 280.0)
+                .resizable(false)
+                .decorations(false)
+                .always_on_top(true)
+                .center()
+                .focused(true)
+                .build()
+            {
+                Ok(_) => {
+                    tracing::info!(app = %app_name, "Limit popup shown");
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, app = %app_name, "Failed to create limit popup");
+                    // Fallback to system notification
+                    let _ = self.send_system_notification(
+                        &format!("{} blocked", app_name),
+                        "Daily time limit exceeded. The app will be closed.",
+                    );
+                    self.block_app(app_name);
+                }
+            }
+        } else {
+            // No app handle, fallback to direct blocking
+            tracing::warn!("No app handle available, falling back to direct blocking");
+            let _ = self.send_system_notification(
+                &format!("{} blocked", app_name),
+                "Daily time limit exceeded. The app will be closed.",
+            );
+            self.block_app(app_name);
+        }
+    }
+
+    /// Close the limit popup window
+    pub fn close_limit_popup(&self) {
+        if let Some(ref handle) = self.app_handle {
+            if let Some(window) = handle.get_webview_window("limit-popup") {
+                let _ = window.close();
+            }
+        }
+    }
+
+    /// Block/close an app (called when user clicks "Quit App" or emergency access expires)
+    pub fn block_app(&self, app_name: &str) {
         #[cfg(target_os = "linux")]
         {
             // Send notification before blocking

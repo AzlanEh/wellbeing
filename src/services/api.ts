@@ -83,6 +83,23 @@ export const api = {
     return invoke("get_blocked_apps");
   },
 
+  // Emergency access for limit popup
+  grantEmergencyAccess: (appName: string): Promise<number> => {
+    return invoke("grant_emergency_access", { appName });
+  },
+
+  getEmergencyAccessRemaining: (appName: string): Promise<number> => {
+    return invoke("get_emergency_access_remaining", { appName });
+  },
+
+  hasEmergencyAccess: (appName: string): Promise<boolean> => {
+    return invoke("has_emergency_access", { appName });
+  },
+
+  quitBlockedApp: (appName: string): Promise<void> => {
+    return invoke("quit_blocked_app", { appName });
+  },
+
   getInstalledApps: (): Promise<InstalledApp[]> => {
     return invoke("get_installed_apps");
   },
