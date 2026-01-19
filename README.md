@@ -32,13 +32,13 @@ A cross-platform desktop application for tracking and managing your digital habi
 <summary>Click to view screenshots</summary>
 
 ### Dashboard
-![Dashboard](docs/images/dashboard.png)
+![Dashboard](screenshort/screenshot-2026-01-19_22-54-10.png)
 
-### App Limits
-![App Limits](docs/images/limits.png)
+### Settings
+![App Limits](screenshort/screenshot-2026-01-19_22-54-37.png)
 
-### Focus Mode
-![Focus Mode](docs/images/focus.png)
+### History
+![Focus Mode](screenshort/screenshot-2026-01-19_22-55-24.png)
 
 </details>
 
