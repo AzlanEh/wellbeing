@@ -37,12 +37,17 @@ interface AppState {
   loading: LoadingState;
   error: string | null;
   activeTab: "dashboard" | "history" | "goals" | "focus" | "limits" | "settings";
+  sidebarCollapsed: boolean;
+  mobileSidebarOpen: boolean;
 
   // Computed helper for backwards compatibility
   isLoading: boolean;
   isInitialLoad: () => boolean;
 
   setActiveTab: (tab: "dashboard" | "history" | "goals" | "focus" | "limits" | "settings") => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebar: () => void;
+  setMobileSidebarOpen: (open: boolean) => void;
   loadTheme: () => Promise<void>;
   loadDailyStats: () => Promise<void>;
   loadWeeklyStats: () => Promise<void>;
@@ -65,15 +70,15 @@ interface AppState {
 
 const defaultTheme: Theme = {
   colors: {
-    primary: "#4F46E5",
-    secondary: "#818CF8",
-    background: "#FFFFFF",
-    surface: "#F3F4F6",
-    text: "#1F2937",
-    textSecondary: "#6B7280",
-    accent: "#10B981",
-    warning: "#F59E0B",
-    danger: "#EF4444",
+    primary: "oklch(0.9927 0.0364 107.0448)",
+    secondary: "oklch(0.4856 0.0171 107.0202)",
+    background: "oklch(0.1722 0.0041 106.8174)",
+    surface: "oklch(0.1722 0.0041 106.8174)",
+    text: "oklch(0.9927 0.0364 107.0448)",
+    textSecondary: "oklch(0.6357 0.0218 107.0046)",
+    accent: "oklch(0.6357 0.0218 107.0046)",
+    warning: "oklch(0.6344 0.1550 50.2665)",
+    danger: "oklch(0.6368 0.2078 25.3313)",
   },
   fonts: {
     family: "Inter, sans-serif",
@@ -101,6 +106,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   loading: { ...initialLoadingState },
   error: null,
   activeTab: "dashboard",
+  sidebarCollapsed: false,
+  mobileSidebarOpen: false,
 
   // Computed: true if ANY loading operation is in progress
   get isLoading() {
@@ -115,6 +122,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+  
+  toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  
+  setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
 
   loadTheme: async () => {
     try {

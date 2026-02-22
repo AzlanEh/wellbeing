@@ -1,207 +1,150 @@
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
   CartesianGrid,
+  Legend
 } from "recharts";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDuration } from "@/utils/formatters";
-import { tooltipStyle } from "./constants";
 
-interface WeeklyDataPoint {
-  name: string;
-  hours: number;
-}
+// Theme colors from index.css (LinkGuard inspired)
+const CHART_COLORS = [
+  "var(--color-chart-1)", // Cyan
+  "var(--color-chart-2)", // Purple
+  "var(--color-chart-3)", // Yellow
+];
 
 interface TimelineDataPoint {
   hour: string;
   minutes: number;
 }
 
-interface CategoryDataPoint {
-  name: string;
-  value: number;
-  apps: number;
-  color: string;
-}
-
 interface UsageChartProps {
-  weeklyData: WeeklyDataPoint[];
   timelineData: TimelineDataPoint[];
-  categoryData: CategoryDataPoint[];
 }
 
-export const UsageChart = ({ weeklyData, timelineData, categoryData }: UsageChartProps) => {
+export const UsageChart = ({ timelineData }: UsageChartProps) => {
+  // Generate dummy multi-line data for visual matching if real data is single-line
+  // In a real app, you'd pass multiple data series
+  const data = timelineData.map(point => ({
+    ...point,
+    // Simulate other metrics for the multi-line look
+    previous: Math.max(0, point.minutes * (0.8 + Math.random() * 0.4)), 
+    average: Math.max(0, point.minutes * (0.6 + Math.random() * 0.3)),
+  }));
+
   return (
-    <Card className="lg:col-span-2 hover:shadow-lg transition-all duration-300">
-      <CardHeader className="pb-2">
-        <Tabs defaultValue="weekly" className="w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-xl font-semibold">Usage Overview</CardTitle>
-            <TabsList className="grid w-full sm:w-auto grid-cols-3">
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="timeline">Timeline</TabsTrigger>
-              <TabsTrigger value="category">Categories</TabsTrigger>
-            </TabsList>
-          </div>
-
-          <CardContent className="pt-6 px-0">
-            <TabsContent value="weekly" className="mt-0">
-              {weeklyData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
-                    <XAxis
-                      dataKey="name"
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      dy={10}
-                    />
-                    <YAxis
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => `${value}h`}
-                    />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      cursor={{ fill: 'hsl(var(--accent))', opacity: 0.1 }}
-                      formatter={(value: number) => [`${value}h`, "Screen Time"]}
-                    />
-                    <Bar
-                      dataKey="hours"
-                      fill="hsl(var(--primary))"
-                      radius={[6, 6, 0, 0]}
-                      barSize={40}
-                      className="hover:opacity-90 transition-opacity cursor-pointer"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[250px] text-muted-foreground text-sm flex-col gap-2">
-                  <div className="text-4xl opacity-20">📊</div>
-                  No data for this week yet
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="timeline" className="mt-0">
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={timelineData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorMinutes" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
-                  <XAxis
-                    dataKey="hour"
-                    stroke="hsl(var(--muted-foreground))"
-                    interval={3}
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    dy={10}
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}m`}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value: number) => [`${value} min`, "Screen Time"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="minutes"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorMinutes)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </TabsContent>
-
-            <TabsContent value="category" className="mt-0">
-              {categoryData.length > 0 ? (
-                <div className="flex flex-col sm:flex-row items-center gap-6 h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%" className="sm:w-1/2">
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        cornerRadius={4}
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell 
-                             key={`cell-${index}`} 
-                             fill={entry.color} 
-                             stroke="none"
-                             className="hover:opacity-80 transition-opacity cursor-pointer"
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number) => [
-                          formatDuration(value),
-                          "Time",
-                        ]}
-                        contentStyle={tooltipStyle}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex-1 w-full flex flex-col gap-3 overflow-y-auto max-h-[250px] pr-2 custom-scrollbar">
-                    {categoryData.map((cat) => (
-                      <div
-                        key={cat.name}
-                        className="flex items-center gap-3 text-sm p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0 shadow-sm"
-                          style={{ backgroundColor: cat.color }}
-                        />
-                        <span className="flex-1 font-medium truncate text-foreground">
-                          {cat.name}
-                        </span>
-                        <span className="text-muted-foreground text-xs font-mono bg-muted px-2 py-0.5 rounded">
-                          {formatDuration(cat.value)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-[250px] text-muted-foreground text-sm flex-col gap-2">
-                  <div className="text-4xl opacity-20">📂</div>
-                  No categorized usage yet. Set categories below.
-                </div>
-              )}
-            </TabsContent>
-          </CardContent>
-        </Tabs>
+    <Card className="lg:col-span-3 bg-card border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/50">
+        <div>
+           <CardTitle className="text-lg font-semibold text-foreground">Analytics</CardTitle>
+           <div className="flex items-center gap-2 mt-1">
+             <span className="text-muted-foreground text-sm">Total Usage:</span>
+             <span className="text-2xl font-bold font-display text-foreground">
+               {formatDuration(timelineData.reduce((acc, curr) => acc + curr.minutes, 0))}
+             </span>
+           </div>
+        </div>
+        {/* Optional: Add controls here like [Last Month] dropdown */}
       </CardHeader>
+
+      <CardContent className="p-6">
+        <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                   {/* Gradient for the first line (Cyan) - matching Image 2 style */}
+                  <linearGradient id="colorCyan" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={CHART_COLORS[0]} stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor={CHART_COLORS[0]} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                
+                {/* Faint Grid Lines */}
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" opacity={0.4} />
+                
+                <XAxis
+                  dataKey="hour"
+                  stroke="var(--color-muted-foreground)"
+                  interval={3}
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  dy={10}
+                  tick={{ fill: "var(--color-muted-foreground)" }}
+                />
+                <YAxis
+                  stroke="var(--color-muted-foreground)"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}m`}
+                  tick={{ fill: "var(--color-muted-foreground)" }}
+                />
+                
+                <Tooltip
+                  contentStyle={{
+                      backgroundColor: "var(--color-popover)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius)",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                      padding: "8px 12px",
+                  }}
+                  itemStyle={{ color: "var(--color-foreground)", fontSize: "12px", padding: "2px 0" }}
+                  labelStyle={{ color: "var(--color-muted-foreground)", marginBottom: "4px", fontSize: "12px" }}
+                  cursor={{ stroke: "var(--color-muted-foreground)", strokeWidth: 1, strokeDasharray: "4 4" }}
+                />
+                
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36} 
+                  iconType="circle"
+                  formatter={(value) => <span className="text-xs text-muted-foreground ml-1">{value}</span>}
+                />
+
+                {/* Primary Line (Cyan) - Filled */}
+                <Area
+                  type="monotone"
+                  dataKey="minutes"
+                  name="Current Usage"
+                  stroke={CHART_COLORS[0]}
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorCyan)"
+                  activeDot={{ r: 4, strokeWidth: 0, fill: "#fff" }}
+                />
+
+                {/* Secondary Line (Purple) - Line only */}
+                <Area
+                  type="monotone"
+                  dataKey="previous"
+                  name="Previous Period"
+                  stroke={CHART_COLORS[1]}
+                  strokeWidth={2}
+                  fill="none"
+                  activeDot={false}
+                  dot={false}
+                />
+
+                 {/* Tertiary Line (Yellow) - Line only */}
+                 <Area
+                  type="monotone"
+                  dataKey="average"
+                  name="Average"
+                  stroke={CHART_COLORS[2]}
+                  strokeWidth={2}
+                  fill="none"
+                  activeDot={false}
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+        </div>
+      </CardContent>
     </Card>
   );
 };

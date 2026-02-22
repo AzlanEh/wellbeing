@@ -274,27 +274,49 @@ export const FocusMode = () => {
   if (!settings || !session) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center animate-pulse">
+            <Target className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-muted-foreground text-sm">Loading...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold font-heading tracking-tight">Focus Mode</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Block distractions and boost your productivity
+          </p>
+        </div>
+      </header>
+
       {/* Active Session Card */}
       <Card
         className={cn(
-          "transition-all duration-300",
-          session.is_active && "border-primary ring-2 ring-primary/20"
+          "transition-all duration-300 border-border/50 overflow-hidden",
+          session.is_active && "border-primary ring-2 ring-primary/20 shadow-lg shadow-primary/10"
         )}
       >
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Focus Mode
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <div className={cn(
+              "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+              session.is_active 
+                ? "bg-gradient-to-br from-primary to-cyan-500 shadow-lg shadow-primary/30" 
+                : "bg-gradient-to-br from-slate-500 to-gray-500"
+            )}>
+              <Target className="h-4 w-4 text-white" />
+            </div>
+            Focus Session
             {session.is_active && (
-              <Badge variant="default" className="ml-2">
-                <Zap className="h-3 w-3 mr-1" />
+              <Badge variant="default" className="ml-2 gap-1 animate-pulse">
+                <Zap className="h-3 w-3" />
                 Active
               </Badge>
             )}
@@ -302,37 +324,63 @@ export const FocusMode = () => {
         </CardHeader>
         <CardContent>
           {session.is_active ? (
-            <div className="space-y-4">
-              {/* Session Info */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    {session.is_scheduled
-                      ? `Scheduled: ${session.schedule_name}`
-                      : "Manual Session"}
-                  </p>
-                  <p className="text-2xl font-bold">
-                    {formatTimeRemaining(session.minutes_remaining)} remaining
-                  </p>
+            <div className="space-y-6">
+              {/* Timer Display */}
+              <div className="flex flex-col items-center justify-center py-6 sm:py-8">
+                <div className="relative">
+                  {/* Circular Progress Ring */}
+                  <div className="w-36 h-36 sm:w-48 sm:h-48 relative">
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                      {/* Background circle */}
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="6"
+                        className="text-muted/30"
+                      />
+                      {/* Progress circle */}
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        fill="none"
+                        stroke="url(#focusGradient)"
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 45}`}
+                        strokeDashoffset={`${2 * Math.PI * 45 * (1 - (session.minutes_remaining || 0) / (session.duration_minutes || 1))}`}
+                        className="transition-all duration-1000"
+                      />
+                      <defs>
+                        <linearGradient id="focusGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#D946A0" />
+                          <stop offset="100%" stopColor="#E8B931" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    {/* Center content */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <p className="text-3xl sm:text-4xl font-bold tracking-tight">
+                        {formatTimeRemaining(session.minutes_remaining)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {session.is_scheduled ? session.schedule_name : "remaining"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  onClick={handleStopSession}
-                  className="gap-2"
-                >
-                  <Square className="h-4 w-4" />
-                  End Focus
-                </Button>
               </div>
 
               {/* Blocked Apps */}
               {session.blocked_apps.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Blocking:</p>
-                  <div className="flex flex-wrap gap-2">
+                <div className="space-y-2 p-3 rounded-xl bg-muted/30 border border-border/50">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Blocking</p>
+                  <div className="flex flex-wrap gap-1.5">
                     {session.blocked_apps.map((app) => (
-                      <Badge key={app} variant="secondary">
+                      <Badge key={app} variant="secondary" className="text-xs">
                         {app}
                       </Badge>
                     ))}
@@ -340,29 +388,43 @@ export const FocusMode = () => {
                 </div>
               )}
 
-              {/* Quick Extend */}
-              {!session.is_scheduled && session.duration_minutes && (
-                <div className="flex gap-2 pt-2">
-                  <p className="text-sm text-muted-foreground mr-2">Extend:</p>
-                  {[5, 10, 15].map((mins) => (
-                    <Button
-                      key={mins}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExtendSession(mins)}
-                    >
-                      +{mins}m
-                    </Button>
-                  ))}
-                </div>
-              )}
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  onClick={handleStopSession}
+                  className="w-full sm:w-auto gap-2"
+                >
+                  <Square className="h-4 w-4" />
+                  End Focus
+                </Button>
+
+                {/* Quick Extend */}
+                {!session.is_scheduled && session.duration_minutes && (
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
+                    <span className="text-xs text-muted-foreground">Extend:</span>
+                    {[5, 10, 15].map((mins) => (
+                      <Button
+                        key={mins}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExtendSession(mins)}
+                        className="h-8"
+                      >
+                        +{mins}m
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Duration Selection */}
-              <div className="space-y-2">
-                <Label>Session Duration</Label>
-                <div className="flex flex-wrap gap-2">
+              <div className="space-y-3">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Session Duration</Label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                   {DURATION_PRESETS.map((preset) => (
                     <Button
                       key={preset.value}
@@ -376,22 +438,23 @@ export const FocusMode = () => {
                         setSelectedDuration(preset.value);
                         setCustomDuration("");
                       }}
+                      className="h-10"
                     >
                       {preset.label}
                     </Button>
                   ))}
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Custom"
-                      value={customDuration}
-                      onChange={(e) => setCustomDuration(e.target.value)}
-                      className="w-20"
-                      min={1}
-                      max={480}
-                    />
-                    <span className="text-sm text-muted-foreground">min</span>
-                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    type="number"
+                    placeholder="Custom"
+                    value={customDuration}
+                    onChange={(e) => setCustomDuration(e.target.value)}
+                    className="w-24"
+                    min={1}
+                    max={480}
+                  />
+                  <span className="text-sm text-muted-foreground">minutes</span>
                 </div>
               </div>
 
@@ -400,17 +463,17 @@ export const FocusMode = () => {
                 size="lg"
                 onClick={handleStartSession}
                 disabled={settings.blocked_apps.length === 0}
-                className="w-full gap-2"
+                className="w-full gap-2 h-12 text-base shadow-lg hover:shadow-xl transition-all"
               >
-                <Play className="h-4 w-4" />
+                <Play className="h-5 w-5" />
                 Start Focus Session
               </Button>
 
               {settings.blocked_apps.length === 0 && (
-                <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  Add apps to block before starting
-                </p>
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <p className="text-xs">Add apps to block before starting a focus session</p>
+                </div>
               )}
             </div>
           )}
@@ -418,17 +481,19 @@ export const FocusMode = () => {
       </Card>
 
       {/* Blocked Apps Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Settings2 className="h-5 w-5" />
+      <Card className="border-border/50 hover:shadow-lg transition-all">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center">
+              <Settings2 className="h-4 w-4 text-white" />
+            </div>
             Apps to Block
           </CardTitle>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowAddApp(true)}
-            className="gap-2"
+            className="gap-2 self-start sm:self-auto"
           >
             <Plus className="h-4 w-4" />
             Add App
@@ -436,22 +501,31 @@ export const FocusMode = () => {
         </CardHeader>
         <CardContent>
           {settings.blocked_apps.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">
-              No apps configured. Add apps to block during focus sessions.
-            </p>
+            <div className="text-center py-8 text-muted-foreground">
+              <div className="h-14 w-14 mx-auto mb-3 bg-muted/50 rounded-full flex items-center justify-center">
+                <Settings2 className="h-7 w-7 opacity-50" />
+              </div>
+              <p className="text-sm font-medium">No apps configured</p>
+              <p className="text-xs mt-1">Add apps to block during focus sessions.</p>
+            </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {settings.blocked_apps.map((app) => (
                 <div
                   key={app}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                  className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors group"
                 >
-                  <span className="font-medium">{app}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                      {app.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-medium text-sm truncate">{app}</span>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveBlockedApp(app)}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                     disabled={session.is_active}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -464,17 +538,19 @@ export const FocusMode = () => {
       </Card>
 
       {/* Schedules Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+      <Card className="border-border/50 hover:shadow-lg transition-all">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
+              <Calendar className="h-4 w-4 text-white" />
+            </div>
             Scheduled Sessions
           </CardTitle>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowAddSchedule(true)}
-            className="gap-2"
+            className="gap-2 self-start sm:self-auto"
           >
             <Plus className="h-4 w-4" />
             Add Schedule
@@ -482,35 +558,40 @@ export const FocusMode = () => {
         </CardHeader>
         <CardContent>
           {settings.schedules.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">
-              No schedules configured. Add schedules for automatic focus
-              sessions.
-            </p>
+            <div className="text-center py-8 text-muted-foreground">
+              <div className="h-14 w-14 mx-auto mb-3 bg-muted/50 rounded-full flex items-center justify-center">
+                <Calendar className="h-7 w-7 opacity-50" />
+              </div>
+              <p className="text-sm font-medium">No schedules configured</p>
+              <p className="text-xs mt-1">Add schedules for automatic focus sessions.</p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {settings.schedules.map((schedule) => (
                 <div
                   key={schedule.id}
                   className={cn(
-                    "p-4 rounded-lg border",
-                    schedule.enabled ? "bg-card" : "bg-muted/50 opacity-60"
+                    "p-4 rounded-xl border transition-all hover:shadow-md",
+                    schedule.enabled 
+                      ? "bg-card border-border/50 hover:border-primary/30" 
+                      : "bg-muted/30 border-border/30 opacity-60"
                   )}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2 min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{schedule.name}</span>
+                        <span className="font-medium text-sm truncate">{schedule.name}</span>
                         {schedule.enabled && (
-                          <Badge variant="outline" className="text-xs">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                          <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
                             Active
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground font-mono">
                         {schedule.start_time} - {schedule.end_time}
                       </p>
-                      <div className="flex gap-1 mt-1">
+                      <div className="flex gap-1 flex-wrap">
                         {DAYS_OF_WEEK.map((day) => (
                           <Badge
                             key={day.value}
@@ -519,14 +600,17 @@ export const FocusMode = () => {
                                 ? "default"
                                 : "outline"
                             }
-                            className="text-xs px-2"
+                            className={cn(
+                              "text-[10px] px-1.5 py-0",
+                              !schedule.days.includes(day.value) && "opacity-40"
+                            )}
                           >
                             {day.label}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <Switch
                         checked={schedule.enabled}
                         onCheckedChange={(checked) =>
@@ -537,7 +621,7 @@ export const FocusMode = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleRemoveSchedule(schedule.id)}
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -552,30 +636,36 @@ export const FocusMode = () => {
 
       {/* Add App Dialog */}
       <Dialog open={showAddApp} onOpenChange={setShowAddApp}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add App to Block</DialogTitle>
+            <DialogTitle className="text-lg font-heading">Add App to Block</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input
               placeholder="Search apps..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-muted/30"
             />
             <ScrollArea className="h-64">
-              <div className="space-y-2">
+              <div className="space-y-1.5 pr-2">
                 {filteredApps.slice(0, 20).map((app) => (
                   <button
                     key={app.desktop_file}
-                    className="w-full p-3 text-left rounded-lg hover:bg-muted transition-colors flex items-center justify-between"
+                    className="w-full p-3 text-left rounded-xl hover:bg-muted transition-colors flex items-center justify-between group"
                     onClick={() => handleAddBlockedApp(app.name)}
                   >
-                    <span>{app.name}</span>
-                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                        {app.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium">{app.name}</span>
+                    </div>
+                    <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </button>
                 ))}
                 {filteredApps.length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">
+                  <p className="text-center text-muted-foreground py-8 text-sm">
                     No apps found
                   </p>
                 )}
@@ -587,13 +677,13 @@ export const FocusMode = () => {
 
       {/* Add Schedule Dialog */}
       <Dialog open={showAddSchedule} onOpenChange={setShowAddSchedule}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Focus Schedule</DialogTitle>
+            <DialogTitle className="text-lg font-heading">Add Focus Schedule</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Schedule Name</Label>
+              <Label className="text-xs font-medium">Schedule Name</Label>
               <Input
                 placeholder="e.g., Morning Focus"
                 value={newSchedule.name}
@@ -604,8 +694,8 @@ export const FocusMode = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Days</Label>
-              <div className="flex flex-wrap gap-2">
+              <Label className="text-xs font-medium">Days</Label>
+              <div className="flex flex-wrap gap-1.5">
                 {DAYS_OF_WEEK.map((day) => (
                   <Button
                     key={day.value}
@@ -615,6 +705,7 @@ export const FocusMode = () => {
                         : "outline"
                     }
                     size="sm"
+                    className="h-8 w-10 text-xs"
                     onClick={() => {
                       const days = newSchedule.days || [];
                       const newDays = days.includes(day.value)
@@ -631,7 +722,7 @@ export const FocusMode = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Start Time</Label>
+                <Label className="text-xs font-medium">Start Time</Label>
                 <Input
                   type="time"
                   value={newSchedule.start_time}
@@ -644,7 +735,7 @@ export const FocusMode = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>End Time</Label>
+                <Label className="text-xs font-medium">End Time</Label>
                 <Input
                   type="time"
                   value={newSchedule.end_time}
@@ -655,7 +746,7 @@ export const FocusMode = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowAddSchedule(false)}>
               Cancel
             </Button>

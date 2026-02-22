@@ -1,111 +1,171 @@
-import { LayoutDashboard, Clock, Settings, Minus, History, Activity, Target, Focus } from "lucide-react";
+// Re-export specific file for Sidebar component
+import {
+  LayoutDashboard,
+  Clock,
+  Settings,
+  History,
+  Target,
+  Focus,
+  ChevronLeft,
+  ChevronRight,
+  Activity,
+} from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { formatDuration } from "@/utils/formatters";
-import { api } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const tabs = [
-  { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
-  { id: "history" as const, label: "History", icon: History },
-  { id: "goals" as const, label: "Goals", icon: Target },
-  { id: "focus" as const, label: "Focus Mode", icon: Focus },
-  { id: "limits" as const, label: "App Limits", icon: Clock },
-  { id: "settings" as const, label: "Settings", icon: Settings },
+  {
+    id: "dashboard" as const,
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    shortcut: "1",
+  },
+  { id: "history" as const, label: "History", icon: History, shortcut: "2" },
+  { id: "goals" as const, label: "Goals", icon: Target, shortcut: "3" },
+  { id: "focus" as const, label: "Focus", icon: Focus, shortcut: "4" },
+  { id: "limits" as const, label: "Limits", icon: Clock, shortcut: "5" },
 ];
 
 export const Sidebar = () => {
-  const { activeTab, setActiveTab, dailyStats } = useAppStore();
+  const { activeTab, setActiveTab, sidebarCollapsed, toggleSidebar } =
+    useAppStore();
 
-  const handleMinimizeToTray = async () => {
-    try {
-      await api.minimizeToTray();
-    } catch (error) {
-      console.error("Failed to minimize to tray:", error);
+  const NavItem = ({ tab }: { tab: (typeof tabs)[0]; index: number }) => {
+    const Icon = tab.icon;
+    const isActive = activeTab === tab.id;
+
+    // In collapsed mode, we just show the icon centered.
+    // In expanded mode, we show icon + label.
+
+    if (sidebarCollapsed) {
+      return (
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              className={cn(
+                "h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <Icon className="h-5 w-5" strokeWidth={2.5} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="font-medium">
+            {tab.label}
+          </TooltipContent>
+        </Tooltip>
+      );
     }
+
+    return (
+      <Button
+        variant="ghost"
+        className={cn(
+          "w-full justify-start gap-4 h-12 px-4 font-medium text-sm transition-all duration-300 rounded-full",
+          isActive
+            ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+            : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+        )}
+        onClick={() => setActiveTab(tab.id)}
+      >
+        <Icon
+          className={cn(
+            "h-5 w-5",
+            isActive
+              ? "text-white"
+              : "text-muted-foreground group-hover:text-foreground",
+          )}
+          strokeWidth={2.5}
+        />
+        {tab.label}
+      </Button>
+    );
   };
 
   return (
-    <aside 
-      className="w-64 bg-card border-r flex flex-col shadow-lg z-10"
-      role="navigation"
-      aria-label="Main navigation"
-    >
-      <div className="p-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shadow-md">
-                <Activity className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <h1 className="text-lg font-bold tracking-tight">Wellbeing</h1>
+    <TooltipProvider>
+      <aside
+        className={cn(
+          "h-screen bg-card border-r border-border flex flex-col transition-all duration-300 py-6 overflow-hidden z-50 shadow-sm",
+          sidebarCollapsed ? "w-[88px] px-3 items-center" : "w-[280px] px-6",
+        )}
+      >
+        {/* Logo Area */}
+        <div
+          className={cn(
+            "flex items-center mb-10 w-full",
+            sidebarCollapsed ? "justify-center" : "px-2",
+          )}
+        >
+          <div className="h-10 w-10 rounded-full bg-foreground flex items-center justify-center shrink-0 shadow-sm">
+            <Activity className="h-5 w-5 text-background" strokeWidth={3} />
           </div>
+          {!sidebarCollapsed && (
+            <span className="ml-3 font-heading font-bold text-xl tracking-tight text-foreground">
+              Wellbeing
+            </span>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 w-full space-y-2">
+          {tabs.map((tab, index) => (
+            <NavItem key={tab.id} tab={tab} index={index} />
+          ))}
+        </nav>
+
+        {/* Bottom Actions */}
+        <div className="mt-auto space-y-3 w-full">
+          {/* Collapse Button */}
+          <Button
+            variant="outline"
+            className={cn(
+              "rounded-full border-border hover:bg-secondary hover:text-foreground text-muted-foreground transition-all",
+              sidebarCollapsed
+                ? "h-12 w-12 p-0 justify-center"
+                : "w-full justify-between px-4 h-12",
+            )}
+            onClick={toggleSidebar}
+          >
+            {!sidebarCollapsed && (
+              <span className="font-medium text-sm">Collapse</span>
+            )}
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+
+          {/* Settings Link */}
           <Button
             variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={handleMinimizeToTray}
-            title="Minimize to tray"
-            aria-label="Minimize to system tray"
+            className={cn(
+              "rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-all",
+              sidebarCollapsed
+                ? "h-12 w-12 p-0 justify-center"
+                : "w-full justify-start gap-4 px-4 h-12",
+            )}
+            onClick={() => setActiveTab("settings")}
           >
-            <Minus className="h-4 w-4" aria-hidden="true" />
+            <Settings className="h-5 w-5" strokeWidth={2.5} />
+            {!sidebarCollapsed && (
+              <span className="font-medium text-sm">Settings</span>
+            )}
           </Button>
         </div>
-
-        <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Today's Activity
-            </span>
-          </div>
-          <div 
-            className="text-3xl font-bold text-foreground tracking-tight"
-            aria-label={`Today's screen time: ${dailyStats ? formatDuration(dailyStats.total_seconds) : "0 minutes"}`}
-          >
-            {dailyStats ? formatDuration(dailyStats.total_seconds) : "0m"}
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4">
-        <Separator className="bg-border/50" />
-      </div>
-
-      <nav className="flex-1 p-4 flex flex-col gap-2" aria-label="Main menu">
-        {tabs.map((tab, index) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <Button
-              key={tab.id}
-              variant={isActive ? "secondary" : "ghost"}
-              className={cn(
-                "w-full justify-start gap-3 h-11 font-medium transition-all duration-200",
-                isActive 
-                    ? "bg-primary/10 text-primary hover:bg-primary/15 shadow-sm" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}
-              onClick={() => setActiveTab(tab.id)}
-              aria-current={isActive ? "page" : undefined}
-              aria-label={`${tab.label} (Ctrl+${index + 1})`}
-            >
-              <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} aria-hidden="true" />
-              <span>{tab.label}</span>
-              {isActive && (
-                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
-              )}
-            </Button>
-          );
-        })}
-      </nav>
-
-      <div className="p-4 border-t bg-muted/20">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>v0.1.0</span>
-            <span>Local Mode</span>
-        </div>
-      </div>
-    </aside>
+      </aside>
+    </TooltipProvider>
   );
 };

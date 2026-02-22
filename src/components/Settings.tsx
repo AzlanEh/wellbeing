@@ -214,83 +214,87 @@ export const Settings = () => {
   ];
 
   return (
-    <div className="max-w-4xl space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground mt-2">
-          Customize your Digital Wellbeing experience
-        </p>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold font-heading tracking-tight">Settings</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Customize your Digital Wellbeing experience
+          </p>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Appearance Section */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-               <Monitor className="h-5 w-5 text-primary" />
+        <Card className="border-border/50 hover:shadow-lg transition-all">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
+                <Monitor className="h-4 w-4 text-white" />
+              </div>
                Appearance
             </CardTitle>
-            <CardDescription>Customize the application theme</CardDescription>
+            <CardDescription className="text-xs">Customize the application theme</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <Label>Theme Mode</Label>
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Theme Mode</Label>
               <div className="grid grid-cols-3 gap-2">
                 <Button
                   variant={theme === "light" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setTheme("light")}
-                  className="gap-2 w-full"
+                  className="gap-1.5 w-full h-9"
                 >
-                  <Sun className="h-4 w-4" />
-                  Light
+                  <Sun className="h-3.5 w-3.5" />
+                  <span className="text-xs">Light</span>
                 </Button>
                 <Button
                   variant={theme === "dark" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setTheme("dark")}
-                  className="gap-2 w-full"
+                  className="gap-1.5 w-full h-9"
                 >
-                  <Moon className="h-4 w-4" />
-                  Dark
+                  <Moon className="h-3.5 w-3.5" />
+                  <span className="text-xs">Dark</span>
                 </Button>
                 <Button
                   variant={theme === "system" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setTheme("system")}
-                  className="gap-2 w-full"
+                  className="gap-1.5 w-full h-9"
                 >
-                  <Monitor className="h-4 w-4" />
-                  System
+                  <Monitor className="h-3.5 w-3.5" />
+                  <span className="text-xs">System</span>
                 </Button>
               </div>
             </div>
 
-            <div className="pt-4 border-t">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Config File Location</p>
-                <code className="block text-xs bg-muted p-2 rounded-md break-all">
-                  {themePath || "~/.config/wellbeing/theme.json"}
-                </code>
-              </div>
+            <div className="pt-3 border-t">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Config Location</p>
+              <code className="block text-[10px] bg-muted p-2 rounded-lg break-all font-mono">
+                {themePath || "~/.config/wellbeing/theme.json"}
+              </code>
             </div>
           </CardContent>
         </Card>
 
         {/* Notifications Section */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-               <Bell className="h-5 w-5 text-primary" />
+        <Card className="border-border/50 hover:shadow-lg transition-all">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                <Bell className="h-4 w-4 text-white" />
+              </div>
                Notifications
             </CardTitle>
-            <CardDescription>Manage system alerts</CardDescription>
+            <CardDescription className="text-xs">Manage system alerts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-               <div className="space-y-1">
-                  <p className="font-medium">Enable Notifications</p>
-                  <p className="text-sm text-muted-foreground">
+               <div className="space-y-0.5">
+                  <p className="font-medium text-sm">Enable Notifications</p>
+                  <p className="text-xs text-muted-foreground">
                      Allow system notifications
                   </p>
                </div>
@@ -301,16 +305,19 @@ export const Settings = () => {
                />
             </div>
 
-            <div className="space-y-3 pt-2 border-t">
-               <div className="space-y-1">
-                  <Label>Warning Threshold ({notificationSettings.warning_threshold}%)</Label>
+            <div className="space-y-3 pt-3 border-t">
+               <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label className="text-xs">Warning Threshold</Label>
+                    <span className="text-xs font-medium text-primary">{notificationSettings.warning_threshold}%</span>
+                  </div>
                   <input 
                      type="range"
                      min="50"
                      max="95"
                      step="5"
                      value={notificationSettings.warning_threshold}
-                     className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+                     className="w-full accent-primary h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer"
                      onChange={(e) => handleNotificationSettingsChange({
                         warning_threshold: parseInt(e.target.value) || 80,
                      })}
@@ -319,20 +326,20 @@ export const Settings = () => {
                </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-accent/50 border border-border/50">
-               <div className="space-y-1">
-                  <p className="font-medium text-sm">Test Notification</p>
-                  <p className="text-xs text-muted-foreground">
-                     Send a sample alert to your desktop
+            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
+               <div className="space-y-0.5">
+                  <p className="font-medium text-xs">Test Notification</p>
+                  <p className="text-[10px] text-muted-foreground">
+                     Send a sample alert
                   </p>
                </div>
-               <Button variant="secondary" size="sm" onClick={handleTestNotification}>
+               <Button variant="secondary" size="sm" onClick={handleTestNotification} className="h-8">
                   Test
                </Button>
             </div>
             {notificationStatus && (
                <p className={cn(
-                  "text-xs p-2 rounded",
+                  "text-xs p-2 rounded-lg",
                   notificationStatus.includes("Error") 
                      ? "bg-destructive/10 text-destructive" 
                      : "bg-green-500/10 text-green-600"
@@ -344,21 +351,21 @@ export const Settings = () => {
         </Card>
 
         {/* Startup Section */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-               <div className="h-5 w-5 bg-primary/10 rounded-full flex items-center justify-center">
-                  <span className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-               </div>
+        <Card className="border-border/50 hover:shadow-lg transition-all">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                <span className="h-2.5 w-2.5 bg-white rounded-full animate-pulse" />
+              </div>
                System Startup
             </CardTitle>
-            <CardDescription>Configure automatic launch behavior</CardDescription>
+            <CardDescription className="text-xs">Configure automatic launch behavior</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-accent/50 border border-border/50">
-              <div className="space-y-1">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div className="space-y-0.5">
                 <p className="font-medium text-sm">Start at Login</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground">
                   Launch automatically when you sign in
                 </p>
               </div>
@@ -369,23 +376,23 @@ export const Settings = () => {
               />
             </div>
             {autostartStatus && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {autostartStatus.systemd_installed && (
                   <Badge
                     variant={autostartStatus.systemd_running ? "default" : "secondary"}
-                    className="text-xs"
+                    className="text-[10px]"
                   >
                     Systemd: {autostartStatus.systemd_running ? "Running" : "Stopped"}
                   </Badge>
                 )}
                 {autostartStatus.xdg_installed && (
-                  <Badge variant="default" className="text-xs">XDG Autostart: Enabled</Badge>
+                  <Badge variant="default" className="text-[10px]">XDG: Enabled</Badge>
                 )}
               </div>
             )}
             {autostartMessage && (
               <p className={cn(
-                  "text-xs p-2 rounded",
+                  "text-xs p-2 rounded-lg",
                   autostartMessage.startsWith("Error") 
                     ? "bg-destructive/10 text-destructive" 
                     : "bg-green-500/10 text-green-600"
@@ -397,19 +404,21 @@ export const Settings = () => {
         </Card>
 
         {/* Break Reminders Section */}
-        <Card className="md:col-span-2 hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Timer className="h-5 w-5 text-primary" />
+        <Card className="lg:col-span-2 border-border/50 hover:shadow-lg transition-all">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
+                <Timer className="h-4 w-4 text-white" />
+              </div>
               Break Reminders
             </CardTitle>
-            <CardDescription>Manage your work/break cycles (Pomodoro)</CardDescription>
+            <CardDescription className="text-xs">Manage your work/break cycles (Pomodoro)</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="font-medium">Enable Break Reminders</p>
-                <p className="text-sm text-muted-foreground">
+              <div className="space-y-0.5">
+                <p className="font-medium text-sm">Enable Break Reminders</p>
+                <p className="text-xs text-muted-foreground">
                   Get reminded to take breaks periodically
                 </p>
               </div>
@@ -421,36 +430,36 @@ export const Settings = () => {
             </div>
 
             {breakSettings.enabled && (
-              <div className="animate-in slide-in-from-top-2 duration-300 space-y-6 border-t pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="animate-in slide-in-from-top-2 duration-300 space-y-4 border-t pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                       <Label className="flex justify-between">
-                          <span>Work Duration</span>
-                          <span className="text-muted-foreground">{breakSettings.work_minutes} min</span>
-                       </Label>
+                       <div className="flex justify-between">
+                         <Label className="text-xs">Work Duration</Label>
+                         <span className="text-xs font-medium text-primary">{breakSettings.work_minutes} min</span>
+                       </div>
                        <input 
                           type="range"
                           min="1"
                           max="120"
                           value={breakSettings.work_minutes}
-                          className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+                          className="w-full accent-primary h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer"
                           onChange={(e) => handleBreakSettingsChange({
                              work_minutes: parseInt(e.target.value) || 25,
                           })}
                        />
                     </div>
                     <div className="space-y-2">
-                       <Label className="flex justify-between">
-                          <span>Break Duration</span>
-                          <span className="text-muted-foreground">{breakSettings.break_minutes} min</span>
-                       </Label>
+                       <div className="flex justify-between">
+                         <Label className="text-xs">Break Duration</Label>
+                         <span className="text-xs font-medium text-primary">{breakSettings.break_minutes} min</span>
+                       </div>
                        <input 
                           type="range"
                           min="1"
                           max="60"
                           value={breakSettings.break_minutes}
-                          className="w-full accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
+                          className="w-full accent-primary h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer"
                           onChange={(e) => handleBreakSettingsChange({
                              break_minutes: parseInt(e.target.value) || 5,
                           })}
@@ -458,9 +467,9 @@ export const Settings = () => {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col justify-center gap-4 bg-muted/30 p-4 rounded-xl border border-border/50">
+                  <div className="flex flex-col justify-center gap-3 bg-muted/30 p-4 rounded-xl border border-border/50">
                     <div className="flex items-center justify-between">
-                      <Label className="cursor-pointer">Show Notification</Label>
+                      <Label className="cursor-pointer text-sm">Show Notification</Label>
                       <Switch
                         checked={breakSettings.show_notification}
                         onCheckedChange={(show_notification) =>
@@ -469,7 +478,7 @@ export const Settings = () => {
                       />
                     </div>
                     <div className="flex items-center justify-between">
-                      <Label className="cursor-pointer">Play Sound</Label>
+                      <Label className="cursor-pointer text-sm">Play Sound</Label>
                       <Switch
                         checked={breakSettings.play_sound}
                         onCheckedChange={(play_sound) =>
@@ -478,12 +487,10 @@ export const Settings = () => {
                       />
                     </div>
                     
-                    <div className="mt-2 pt-4 border-t border-border/50">
-                       <div className="flex justify-center">
-                          <Badge variant="outline" className="text-sm py-1 px-3">
-                             Cycle: {breakSettings.work_minutes}m Work → {breakSettings.break_minutes}m Break
-                          </Badge>
-                       </div>
+                    <div className="mt-2 pt-3 border-t border-border/50">
+                       <Badge variant="outline" className="text-xs w-full justify-center py-1">
+                          {breakSettings.work_minutes}m Work → {breakSettings.break_minutes}m Break
+                       </Badge>
                     </div>
                   </div>
                 </div>
@@ -493,33 +500,35 @@ export const Settings = () => {
         </Card>
 
         {/* Data Export Section */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Download className="h-5 w-5 text-primary" />
+        <Card className="border-border/50 hover:shadow-lg transition-all">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                <Download className="h-4 w-4 text-white" />
+              </div>
               Export Data
             </CardTitle>
-            <CardDescription>Download your usage history</CardDescription>
+            <CardDescription className="text-xs">Download your usage history</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-date" className="text-xs">Start Date</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="start-date" className="text-[10px] uppercase tracking-wider text-muted-foreground">Start Date</Label>
                 <Input
                   id="start-date"
                   type="date"
-                  className="text-sm"
+                  className="text-sm h-9"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   max={endDate}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="end-date" className="text-xs">End Date</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="end-date" className="text-[10px] uppercase tracking-wider text-muted-foreground">End Date</Label>
                 <Input
                   id="end-date"
                   type="date"
-                  className="text-sm"
+                  className="text-sm h-9"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate}
@@ -528,30 +537,30 @@ export const Settings = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <Button
                 variant="outline"
                 onClick={() => handleExport("csv")}
                 disabled={exportLoading}
-                className="w-full gap-2"
+                className="w-full gap-1.5 h-9"
               >
-                <FileText className="h-4 w-4" />
-                CSV
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-xs">CSV</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => handleExport("json")}
                 disabled={exportLoading}
-                className="w-full gap-2"
+                className="w-full gap-1.5 h-9"
               >
-                <FileJson className="h-4 w-4" />
-                JSON
+                <FileJson className="h-3.5 w-3.5" />
+                <span className="text-xs">JSON</span>
               </Button>
             </div>
 
             {exportMessage && (
               <p className={cn(
-                  "text-xs p-2 rounded text-center",
+                  "text-[10px] p-2 rounded-lg text-center",
                   exportMessage.includes("failed") || exportMessage.includes("Error")
                     ? "bg-destructive/10 text-destructive"
                     : "bg-muted text-muted-foreground"
@@ -563,32 +572,34 @@ export const Settings = () => {
         </Card>
 
         {/* Keyboard Shortcuts */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Keyboard className="h-5 w-5 text-primary" />
+        <Card className="border-border/50 hover:shadow-lg transition-all">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-slate-500 to-gray-600 flex items-center justify-center">
+                <Keyboard className="h-4 w-4 text-white" />
+              </div>
               Shortcuts
             </CardTitle>
-            <CardDescription>Keyboard navigation guide</CardDescription>
+            <CardDescription className="text-xs">Keyboard navigation guide</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-1">
               {shortcuts.map((shortcut) => (
                 <div
                   key={shortcut.action}
-                  className="flex items-center justify-between text-sm group hover:bg-muted/50 p-1.5 rounded transition-colors"
+                  className="flex items-center justify-between text-sm group hover:bg-muted/50 p-2 rounded-lg transition-colors"
                 >
-                  <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
                     {shortcut.action}
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     {shortcut.keys.map((key, i) => (
-                      <span key={i} className="flex items-center gap-1">
-                        <kbd className="px-2 py-0.5 text-[10px] font-bold font-mono bg-muted border border-border rounded shadow-[0_1px_1px_rgba(0,0,0,0.1)]">
+                      <span key={i} className="flex items-center gap-0.5">
+                        <kbd className="px-1.5 py-0.5 text-[9px] font-bold font-mono bg-muted border border-border rounded shadow-[0_1px_1px_rgba(0,0,0,0.1)]">
                           {key}
                         </kbd>
                         {i < shortcut.keys.length - 1 && (
-                          <span className="text-muted-foreground text-[10px]">+</span>
+                          <span className="text-muted-foreground text-[9px]">+</span>
                         )}
                       </span>
                     ))}
@@ -600,19 +611,19 @@ export const Settings = () => {
         </Card>
 
         {/* About Section - Full Width */}
-        <Card className="md:col-span-2 hover:shadow-md transition-shadow bg-primary/5 border-primary/20">
-          <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6">
+        <Card className="lg:col-span-2 border-border/50 hover:shadow-lg transition-all bg-gradient-to-br from-primary/5 to-cyan-500/5">
+          <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 sm:p-6">
              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 bg-primary text-primary-foreground rounded-xl flex items-center justify-center text-xl font-bold shadow-lg">
+                <div className="h-12 w-12 bg-gradient-to-br from-primary to-cyan-500 text-white rounded-xl flex items-center justify-center text-xl font-bold shadow-lg shadow-primary/30">
                    W
                 </div>
                 <div>
-                   <h3 className="font-bold text-lg">Digital Wellbeing</h3>
-                   <p className="text-sm text-muted-foreground">Version 0.1.0 • Linux (Tauri + React)</p>
+                   <h3 className="font-bold text-base sm:text-lg font-heading">Digital Wellbeing</h3>
+                   <p className="text-xs text-muted-foreground">Version 0.1.0 • Linux (Tauri + React)</p>
                 </div>
              </div>
-             <div className="text-xs text-muted-foreground bg-background/50 px-3 py-1 rounded-full border border-border/50">
-                Data Location: ~/.local/share/wellbeing/
+             <div className="text-[10px] text-muted-foreground bg-background/50 px-3 py-1.5 rounded-full border border-border/50 font-mono">
+                ~/.local/share/wellbeing/
              </div>
           </CardContent>
         </Card>

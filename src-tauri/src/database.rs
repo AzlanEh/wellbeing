@@ -28,6 +28,7 @@ pub struct CategoryUsage {
     pub app_count: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageSession {
     pub id: i64,

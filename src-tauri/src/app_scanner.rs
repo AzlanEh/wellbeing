@@ -153,6 +153,7 @@ fn clean_exec(exec: &str) -> String {
 }
 
 /// Map app categories from .desktop to our simplified categories
+#[allow(dead_code)]
 pub fn map_category(desktop_categories: &[String]) -> Option<String> {
     for cat in desktop_categories {
         let cat_lower = cat.to_lowercase();

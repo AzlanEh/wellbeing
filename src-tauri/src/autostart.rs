@@ -174,6 +174,7 @@ pub fn uninstall_autostart() -> Result<String, String> {
 }
 
 /// Check if autostart is enabled
+#[allow(dead_code)]
 pub fn is_autostart_enabled() -> bool {
     // Check systemd service
     if let Some(systemd_dir) = get_systemd_user_dir() {

@@ -25,6 +25,12 @@ export const formatTime = (seconds: number): string => {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 };
 
+export const formatHour = (hour: number): string => {
+  const h = hour % 12 || 12;
+  const ampm = hour < 12 ? "AM" : "PM";
+  return `${h} ${ampm}`;
+};
+
 export const getPercentage = (value: number, total: number): number => {
   if (total === 0) return 0;
   return Math.round((value / total) * 100);

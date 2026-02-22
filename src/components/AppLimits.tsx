@@ -141,40 +141,40 @@ export const AppLimits = () => {
   const quickTimeOptions = [15, 30, 60, 120];
 
   return (
-    <div className="max-w-4xl space-y-8 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">App Limits</h2>
-          <p className="text-muted-foreground mt-2">
+          <h2 className="text-2xl sm:text-3xl font-bold font-heading tracking-tight">App Limits</h2>
+          <p className="text-sm text-muted-foreground mt-1">
             Set healthy boundaries for your application usage
           </p>
         </div>
-        <Button onClick={() => setShowAddForm(true)} className="self-start md:self-auto shadow-lg hover:shadow-xl transition-all" aria-label="Add new app limit">
-          <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-          Add New Limit
+        <Button onClick={() => setShowAddForm(true)} className="self-start sm:self-auto gap-2 shadow-lg hover:shadow-xl transition-all" aria-label="Add new app limit">
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Add Limit
         </Button>
       </header>
 
       {blockedApps.length > 0 && (
         <Card className="border-destructive/30 bg-destructive/5 animate-in slide-in-from-top-2 duration-300">
           <CardContent className="flex items-center gap-4 p-4">
-            <div className="h-12 w-12 rounded-full bg-destructive/20 flex items-center justify-center text-destructive" aria-hidden="true">
-              <Ban className="h-6 w-6" />
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white shadow-lg shadow-red-500/20 shrink-0" aria-hidden="true">
+              <Ban className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
-            <div>
-              <h3 className="font-semibold text-destructive flex items-center gap-2">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-destructive flex items-center gap-2 text-sm sm:text-base">
                 Active Restrictions
-                <Badge variant="destructive" className="ml-2">{blockedApps.length}</Badge>
+                <Badge variant="destructive">{blockedApps.length}</Badge>
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                The following apps are currently blocked: <span className="font-medium text-foreground">{blockedApps.join(", ")}</span>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
+                Blocked: <span className="font-medium text-foreground">{blockedApps.join(", ")}</span>
               </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="list" aria-label="Configured app limits">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6" role="list" aria-label="Configured app limits">
         {appLimits.length > 0 ? (
           appLimits.map((limit) => {
             const progress = getProgressPercentage(

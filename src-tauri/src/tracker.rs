@@ -8,10 +8,12 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::Mutex;
 use tokio::time::interval;
+use user_idle::UserIdle;
 
 /// Notification thresholds
 const WARNING_THRESHOLD: f64 = 0.8; // 80% - send warning
 const EXCEEDED_THRESHOLD: f64 = 1.0; // 100% - limit exceeded
+const IDLE_THRESHOLD_SECONDS: u64 = 300; // 5 minutes
 
 /// Notification types to track what we've already sent
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -98,7 +100,23 @@ impl UsageTracker {
     }
 
     async fn track_window(&self) -> Result<(), String> {
-        let window_name = get_active_window_name()?;
+        let mut window_name = get_active_window_name()?;
+
+        // Check for idle
+        let idle_seconds = match UserIdle::get_time() {
+            Ok(idle) => idle.as_seconds(),
+            Err(e) => {
+                // If we can't get idle time (e.g., missing X11 extension), assume user is active
+                // Log only occasionally or debug to avoid spamming
+                tracing::trace!("Failed to get idle time: {}", e);
+                0
+            }
+        };
+
+        if idle_seconds >= IDLE_THRESHOLD_SECONDS {
+            // User is idle, treat as no active window to stop tracking
+            window_name = None;
+        }
 
         let app_name = match window_name {
             Some(name) => extract_app_name(&name),

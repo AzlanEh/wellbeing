@@ -14,15 +14,19 @@ pub enum WellbeingError {
     InvalidAppName(String),
 
     #[error("App not found: {0}")]
+    #[allow(dead_code)]
     AppNotFound(String),
 
     #[error("Limit not found for app: {0}")]
+    #[allow(dead_code)]
     LimitNotFound(String),
 
     #[error("Configuration error: {0}")]
+    #[allow(dead_code)]
     Config(String),
 
     #[error("Window tracker error: {0}")]
+    #[allow(dead_code)]
     WindowTracker(String),
 
     #[error("Notification error: {0}")]
@@ -39,6 +43,7 @@ pub enum WellbeingError {
 }
 
 /// Result type alias for Wellbeing operations
+#[allow(dead_code)]
 pub type Result<T> = std::result::Result<T, WellbeingError>;
 
 // Implement Serialize for Tauri command compatibility

@@ -83,6 +83,7 @@ impl ThemeLoader {
         }
     }
 
+    #[allow(dead_code)]
     pub fn save_default_theme() -> Result<(), String> {
         if let Some(theme_path) = Self::get_theme_path() {
             let default_theme = Theme::default();

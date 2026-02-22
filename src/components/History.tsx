@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDuration } from "@/utils/formatters";
-import { CATEGORY_COLORS, tooltipStyle } from "./dashboard/constants";
+import { CATEGORY_COLORS } from "./dashboard/constants";
 import { cn } from "@/lib/utils";
 
 type PresetRange = "7d" | "14d" | "30d" | "90d" | "custom";
@@ -333,20 +333,20 @@ export const History = () => {
                     <AreaChart data={trendChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <XAxis
                         dataKey="displayDate"
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="var(--color-muted-foreground)"
                         fontSize={11}
                         tickLine={false}
                         axisLine={false}
                         tickMargin={10}
                       />
                       <YAxis
-                        stroke="hsl(var(--muted-foreground))"
+                        stroke="var(--color-muted-foreground)"
                         fontSize={11}
                         tickFormatter={(value) => `${value}h`}
                         tickLine={false}
@@ -354,8 +354,14 @@ export const History = () => {
                         tickMargin={10}
                       />
                       <Tooltip
-                        contentStyle={tooltipStyle}
-                        cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1, strokeDasharray: "4 4" }}
+                        contentStyle={{
+                          backgroundColor: "var(--color-popover)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "var(--radius)",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                          padding: "8px 12px",
+                        }}
+                        cursor={{ stroke: "var(--color-muted-foreground)", strokeWidth: 1, strokeDasharray: "4 4" }}
                         formatter={(value: number, _name: string, props: { payload?: { seconds?: number } }) => [
                           formatDuration(props.payload?.seconds || value * 3600),
                           "Screen Time",
@@ -364,7 +370,7 @@ export const History = () => {
                       <Area
                         type="monotone"
                         dataKey="hours"
-                        stroke="hsl(var(--primary))"
+                        stroke="var(--color-primary)"
                         strokeWidth={2}
                         fillOpacity={1}
                         fill="url(#colorHours)"
@@ -398,7 +404,7 @@ export const History = () => {
                       <BarChart data={appChartData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                         <XAxis
                           type="number"
-                          stroke="hsl(var(--muted-foreground))"
+                          stroke="var(--color-muted-foreground)"
                           fontSize={11}
                           tickFormatter={(value) => `${value}h`}
                           tickLine={false}
@@ -407,15 +413,21 @@ export const History = () => {
                         <YAxis
                           type="category"
                           dataKey="name"
-                          stroke="hsl(var(--muted-foreground))"
+                          stroke="var(--color-muted-foreground)"
                           fontSize={11}
                           width={100}
                           tickLine={false}
                           axisLine={false}
                         />
                         <Tooltip
-                          contentStyle={tooltipStyle}
-                          cursor={{ fill: "hsl(var(--muted)/0.3)" }}
+                          contentStyle={{
+                            backgroundColor: "var(--color-popover)",
+                            border: "1px solid var(--color-border)",
+                            borderRadius: "var(--radius)",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                            padding: "8px 12px",
+                          }}
+                          cursor={{ fill: "var(--color-muted)" }}
                           formatter={(value: number, _name: string, props: { payload?: { seconds?: number; fullName?: string } }) => [
                             formatDuration(props.payload?.seconds || value * 3600),
                             props.payload?.fullName || "Time",
@@ -423,10 +435,10 @@ export const History = () => {
                         />
                         <Bar 
                            dataKey="hours" 
-                           fill="hsl(var(--primary))" 
+                           fill="var(--color-primary)" 
                            radius={[0, 4, 4, 0] as [number, number, number, number]} 
                            barSize={20}
-                           background={{ fill: "hsl(var(--muted)/0.2)", radius: 4 }}
+                           background={{ fill: "var(--color-muted)", radius: 4 }}
                         />
                       </BarChart>
                     </ResponsiveContainer>
@@ -468,7 +480,13 @@ export const History = () => {
                             </Pie>
                             <Tooltip
                             formatter={(value: number) => [formatDuration(value), "Time"]}
-                            contentStyle={tooltipStyle}
+                            contentStyle={{
+                              backgroundColor: "var(--color-popover)",
+                              border: "1px solid var(--color-border)",
+                              borderRadius: "var(--radius)",
+                              boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                              padding: "8px 12px",
+                            }}
                             />
                         </PieChart>
                         </ResponsiveContainer>
