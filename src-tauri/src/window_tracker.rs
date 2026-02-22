@@ -1,13 +1,6 @@
+use active_win_pos_rs::get_active_window;
 use once_cell::sync::Lazy;
-use serde::Deserialize;
 use std::collections::HashMap;
-use std::process::Command;
-
-#[derive(Debug, Deserialize)]
-struct HyprlandWindow {
-    class: Option<String>,
-    title: Option<String>,
-}
 
 /// App name mapping configuration
 /// Maps lowercase window class/name patterns to display names
@@ -50,6 +43,11 @@ static APP_MAPPINGS: Lazy<Vec<AppMapping>> = Lazy::new(|| {
             contains: Some("zen"),
             display_name: "Zen Browser",
         },
+        AppMapping {
+            exact: Some("msedge"),
+            contains: Some("edge"),
+            display_name: "Microsoft Edge",
+        },
         // Code Editors/IDEs
         AppMapping {
             exact: Some("code"),
@@ -70,6 +68,16 @@ static APP_MAPPINGS: Lazy<Vec<AppMapping>> = Lazy::new(|| {
             exact: Some("cursor"),
             contains: None,
             display_name: "Cursor",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("notepad++"),
+            display_name: "Notepad++",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("sublime_text"),
+            display_name: "Sublime Text",
         },
         // Terminals
         AppMapping {
@@ -112,6 +120,21 @@ static APP_MAPPINGS: Lazy<Vec<AppMapping>> = Lazy::new(|| {
             contains: Some("gnome-terminal"),
             display_name: "Terminal",
         },
+        AppMapping {
+            exact: None,
+            contains: Some("windowsterminal"),
+            display_name: "Windows Terminal",
+        },
+        AppMapping {
+            exact: Some("cmd"),
+            contains: None,
+            display_name: "Command Prompt",
+        },
+        AppMapping {
+            exact: Some("powershell"),
+            contains: None,
+            display_name: "PowerShell",
+        },
         // Communication
         AppMapping {
             exact: Some("discord"),
@@ -132,6 +155,16 @@ static APP_MAPPINGS: Lazy<Vec<AppMapping>> = Lazy::new(|| {
             exact: None,
             contains: Some("thunderbird"),
             display_name: "Thunderbird",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("teams"),
+            display_name: "Microsoft Teams",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("outlook"),
+            display_name: "Outlook",
         },
         // Media
         AppMapping {
@@ -155,6 +188,32 @@ static APP_MAPPINGS: Lazy<Vec<AppMapping>> = Lazy::new(|| {
             contains: Some("libreoffice"),
             display_name: "LibreOffice",
         },
+        AppMapping {
+            exact: None,
+            contains: Some("notion"),
+            display_name: "Notion",
+        },
+        // Windows-specific apps
+        AppMapping {
+            exact: Some("explorer"),
+            contains: None,
+            display_name: "File Explorer",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("winword"),
+            display_name: "Microsoft Word",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("excel"),
+            display_name: "Microsoft Excel",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("powerpnt"),
+            display_name: "Microsoft PowerPoint",
+        },
         // Graphics
         AppMapping {
             exact: Some("gimp"),
@@ -170,6 +229,11 @@ static APP_MAPPINGS: Lazy<Vec<AppMapping>> = Lazy::new(|| {
             exact: None,
             contains: Some("blender"),
             display_name: "Blender",
+        },
+        AppMapping {
+            exact: None,
+            contains: Some("photoshop"),
+            display_name: "Photoshop",
         },
         // File Managers
         AppMapping {
@@ -224,81 +288,35 @@ static EXACT_MATCH_MAP: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(||
     map
 });
 
-/// Get the name of the currently active window
+/// Get the name of the currently active window (cross-platform)
+///
+/// Uses `active-win-pos-rs` which supports:
+/// - Linux: X11 via xcb
+/// - Windows: Win32 API (GetForegroundWindow)
+/// - macOS: Core Graphics / Accessibility API
 pub fn get_active_window_name() -> Result<Option<String>, String> {
-    // Try Hyprland first (Wayland)
-    if let Some(name) = get_hyprland_active_window() {
-        return Ok(Some(name));
-    }
+    match get_active_window() {
+        Ok(window) => {
+            // Prefer the app_name (process name / window class), fall back to title
+            let name = if !window.app_name.is_empty() {
+                window.app_name
+            } else if !window.title.is_empty() {
+                window.title
+            } else {
+                return Ok(None);
+            };
 
-    // Fall back to X11 methods
-    #[cfg(target_os = "linux")]
-    {
-        // Try xprop (X11)
-        if let Some(name) = get_x11_active_window() {
-            return Ok(Some(name));
+            // On Windows, strip the .exe extension from app names
+            #[cfg(target_os = "windows")]
+            let name = name.strip_suffix(".exe").unwrap_or(&name).to_string();
+
+            Ok(Some(name))
         }
-    }
-
-    Ok(None)
-}
-
-/// Get active window using Hyprland IPC
-fn get_hyprland_active_window() -> Option<String> {
-    let output = Command::new("hyprctl")
-        .args(["activewindow", "-j"])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let json_str = String::from_utf8_lossy(&output.stdout);
-    let window: HyprlandWindow = serde_json::from_str(&json_str).ok()?;
-
-    // Prefer class (app name), fall back to title
-    window.class.or(window.title)
-}
-
-/// Get active window using X11 xprop
-#[cfg(target_os = "linux")]
-fn get_x11_active_window() -> Option<String> {
-    // Get the active window ID
-    let window_id_output = Command::new("xprop")
-        .args(["-root", "_NET_ACTIVE_WINDOW"])
-        .output()
-        .ok()?;
-
-    if !window_id_output.status.success() {
-        return None;
-    }
-
-    let output_str = String::from_utf8_lossy(&window_id_output.stdout);
-    let window_id = output_str.split("# ").nth(1)?.trim().to_string();
-
-    if window_id == "0x0" || window_id.is_empty() {
-        return None;
-    }
-
-    // Get window name
-    let name_output = Command::new("xprop")
-        .args(["-id", &window_id, "WM_NAME"])
-        .output()
-        .ok()?;
-
-    if !name_output.status.success() {
-        return None;
-    }
-
-    let output_str = String::from_utf8_lossy(&name_output.stdout);
-    let name_part = output_str.split(" = ").nth(1)?;
-    let name = name_part.trim().trim_matches('"').to_string();
-
-    if name.is_empty() || name == "WM_NAME" {
-        None
-    } else {
-        Some(name)
+        Err(_) => {
+            // Window detection can fail transiently (e.g., desktop focused, screen locked)
+            // This is not an error worth logging every second
+            Ok(None)
+        }
     }
 }
 
@@ -458,5 +476,18 @@ mod tests {
         assert_eq!(extract_app_name("ghostty"), Some("Ghostty".to_string()));
         assert_eq!(extract_app_name("foot"), Some("Foot".to_string()));
         assert_eq!(extract_app_name("wezterm-gui"), Some("WezTerm".to_string()));
+    }
+
+    #[test]
+    fn test_windows_app_detection() {
+        assert_eq!(
+            extract_app_name("explorer"),
+            Some("File Explorer".to_string())
+        );
+        assert_eq!(extract_app_name("cmd"), Some("Command Prompt".to_string()));
+        assert_eq!(
+            extract_app_name("powershell"),
+            Some("PowerShell".to_string())
+        );
     }
 }

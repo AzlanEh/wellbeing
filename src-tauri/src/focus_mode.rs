@@ -1,7 +1,6 @@
 use chrono::{Datelike, Local, NaiveTime};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -381,18 +380,7 @@ impl FocusManager {
     }
 
     fn send_notification(&self, title: &str, message: &str) {
-        #[cfg(target_os = "linux")]
-        {
-            let _ = Command::new("notify-send")
-                .args([
-                    "--app-name=Digital Wellbeing",
-                    "--urgency=normal",
-                    "--icon=dialog-information",
-                    title,
-                    message,
-                ])
-                .output();
-        }
+        crate::notifications::send_notification(title, message);
     }
 }
 

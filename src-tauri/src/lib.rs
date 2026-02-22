@@ -9,6 +9,7 @@ mod goals;
 mod limit_popup;
 mod migrations;
 mod notification_settings;
+mod notifications;
 mod theme;
 mod tracker;
 mod tray;
@@ -198,6 +199,14 @@ fn block_app(app_name: String) -> CmdResult<()> {
         let _ = Command::new("pkill").args(["-x", &app_name]).output();
     }
 
+    // On Windows, use taskkill to terminate the app
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/IM", &format!("{}.exe", app_name), "/F"])
+            .output();
+    }
+
     Ok(())
 }
 
@@ -262,41 +271,15 @@ fn get_installed_apps() -> Vec<InstalledApp> {
 
 #[tauri::command]
 fn send_test_notification() -> CmdResult<()> {
-    // Use notify-send on Linux
-    #[cfg(target_os = "linux")]
-    {
-        let result = Command::new("notify-send")
-            .args([
-                "--app-name=Digital Wellbeing",
-                "--urgency=normal",
-                "--icon=dialog-information",
-                "Digital Wellbeing",
-                "Notifications are working! You will receive alerts when approaching or exceeding app limits.",
-            ])
-            .output();
-
-        match result {
-            Ok(output) => {
-                if output.status.success() {
-                    return Ok(());
-                }
-                return Err(WellbeingError::Notification(format!(
-                    "notify-send failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )));
-            }
-            Err(e) => {
-                return Err(WellbeingError::Notification(format!(
-                    "Failed to run notify-send: {}. Make sure libnotify is installed.",
-                    e
-                )));
-            }
-        }
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
+    if notifications::send_notification(
+        "Digital Wellbeing",
+        "Notifications are working! You will receive alerts when approaching or exceeding app limits.",
+    ) {
         Ok(())
+    } else {
+        Err(WellbeingError::Notification(
+            "Failed to send test notification. Check that your system notification service is available.".into(),
+        ))
     }
 }
 

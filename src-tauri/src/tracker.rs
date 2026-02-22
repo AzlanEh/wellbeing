@@ -8,7 +8,6 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::Mutex;
 use tokio::time::interval;
-use user_idle::UserIdle;
 
 /// Notification thresholds
 const WARNING_THRESHOLD: f64 = 0.8; // 80% - send warning
@@ -102,22 +101,8 @@ impl UsageTracker {
     async fn track_window(&self) -> Result<(), String> {
         let mut window_name = get_active_window_name()?;
 
-        // Check for idle (Skip on Wayland as it spams Xlib missing extension warnings)
-        let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
-            || std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "wayland";
-        let idle_seconds = if is_wayland {
-            0 // Assume active on Wayland due to lack of idle timer support
-        } else {
-            match UserIdle::get_time() {
-                Ok(idle) => idle.as_seconds(),
-                Err(e) => {
-                    // If we can't get idle time (e.g., missing X11 extension), assume user is active
-                    // Log only occasionally or debug to avoid spamming
-                    tracing::trace!("Failed to get idle time: {}", e);
-                    0
-                }
-            }
-        };
+        // Check for idle - platform-specific behavior
+        let idle_seconds = get_idle_seconds();
 
         if idle_seconds >= IDLE_THRESHOLD_SECONDS {
             // User is idle, treat as no active window to stop tracking
@@ -297,78 +282,7 @@ impl UsageTracker {
     }
 
     fn send_system_notification(&self, title: &str, body: &str) -> bool {
-        // Use notify-send on Linux (works with most desktop environments)
-        #[cfg(target_os = "linux")]
-        {
-            let result = Command::new("notify-send")
-                .args([
-                    "--app-name=Digital Wellbeing",
-                    "--urgency=normal",
-                    "--icon=dialog-warning",
-                    title,
-                    body,
-                ])
-                .output();
-
-            match result {
-                Ok(output) => {
-                    if output.status.success() {
-                        return true;
-                    }
-                    tracing::warn!(
-                        stderr = %String::from_utf8_lossy(&output.stderr),
-                        "notify-send failed"
-                    );
-                }
-                Err(e) => {
-                    tracing::error!(error = %e, "Failed to run notify-send");
-                }
-            }
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            let script = format!(
-                r#"display notification "{}" with title "{}""#,
-                body.replace('"', r#"\""#),
-                title.replace('"', r#"\""#)
-            );
-            let result = Command::new("osascript").args(["-e", &script]).output();
-
-            if let Ok(output) = result {
-                if output.status.success() {
-                    return true;
-                }
-            }
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            // Windows notification via PowerShell
-            let script = format!(
-                r#"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
-$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-$textNodes = $template.GetElementsByTagName("text")
-$textNodes.Item(0).AppendChild($template.CreateTextNode("{}")) > $null
-$textNodes.Item(1).AppendChild($template.CreateTextNode("{}")) > $null
-$toast = [Windows.UI.Notifications.ToastNotification]::new($template)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Digital Wellbeing").Show($toast)"#,
-                title.replace('"', r#"\""#),
-                body.replace('"', r#"\""#)
-            );
-
-            let result = Command::new("powershell")
-                .args(["-Command", &script])
-                .output();
-
-            if let Ok(output) = result {
-                if output.status.success() {
-                    return true;
-                }
-            }
-        }
-
-        false
+        crate::notifications::send_notification(title, body)
     }
 
     /// Show the limit reached popup window for a blocked app
@@ -475,6 +389,31 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
             let _ = Command::new("taskkill")
                 .args(["/IM", &format!("{}.exe", app_name), "/F"])
                 .output();
+        }
+    }
+}
+
+/// Get user idle time in seconds, cross-platform.
+///
+/// - Linux (X11): uses `user-idle` crate (requires libxss)
+/// - Linux (Wayland): returns 0 (not supported, assume active)
+/// - Windows/macOS: uses `user-idle` crate natively
+fn get_idle_seconds() -> u64 {
+    #[cfg(target_os = "linux")]
+    {
+        // Skip on Wayland as it spams Xlib missing extension warnings
+        let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
+            || std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "wayland";
+        if is_wayland {
+            return 0;
+        }
+    }
+
+    match user_idle::UserIdle::get_time() {
+        Ok(idle) => idle.as_seconds(),
+        Err(e) => {
+            tracing::trace!("Failed to get idle time: {}", e);
+            0
         }
     }
 }

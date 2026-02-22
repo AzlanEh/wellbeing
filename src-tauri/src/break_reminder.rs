@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -121,28 +120,12 @@ pub struct BreakNotification {
 }
 
 impl BreakNotification {
-    /// Send the notification using system notify-send
+    /// Send the notification using platform-native notification system
     pub fn send(&self) {
         if !self.show_notification {
             return;
         }
 
-        #[cfg(target_os = "linux")]
-        {
-            let args = vec![
-                "--app-name=Digital Wellbeing",
-                "--urgency=normal",
-                "--icon=dialog-information",
-            ];
-
-            let title = self.title.clone();
-            let message = self.message.clone();
-
-            let _ = Command::new("notify-send")
-                .args(&args)
-                .arg(&title)
-                .arg(&message)
-                .output();
-        }
+        crate::notifications::send_notification(&self.title, &self.message);
     }
 }

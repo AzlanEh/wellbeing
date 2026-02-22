@@ -115,30 +115,11 @@ impl NotificationManager {
             return Ok(());
         }
 
-        #[cfg(target_os = "linux")]
-        {
-            let result = std::process::Command::new("notify-send")
-                .args([
-                    "--app-name=Digital Wellbeing",
-                    &format!("--urgency={}", urgency),
-                    "--icon=dialog-warning",
-                    title,
-                    body,
-                ])
-                .output();
-
-            match result {
-                Ok(output) if output.status.success() => Ok(()),
-                Ok(output) => Err(format!(
-                    "notify-send failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )),
-                Err(e) => Err(format!("Failed to run notify-send: {}", e)),
-            }
+        if crate::notifications::send_notification_with_urgency(title, body, urgency) {
+            Ok(())
+        } else {
+            Err("Failed to send notification".to_string())
         }
-
-        #[cfg(not(target_os = "linux"))]
-        Ok(())
     }
 }
 

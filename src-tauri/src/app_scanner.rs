@@ -11,8 +11,27 @@ pub struct InstalledApp {
     pub categories: Vec<String>,
 }
 
-/// Get all installed applications from .desktop files
+/// Get all installed applications (cross-platform)
 pub fn get_installed_apps() -> Vec<InstalledApp> {
+    #[cfg(target_os = "linux")]
+    {
+        get_installed_apps_linux()
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        get_installed_apps_windows()
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        Vec::new()
+    }
+}
+
+/// Get all installed applications from .desktop files (Linux)
+#[cfg(target_os = "linux")]
+fn get_installed_apps_linux() -> Vec<InstalledApp> {
     let mut apps = Vec::new();
 
     // Standard locations for .desktop files
@@ -54,7 +73,159 @@ pub fn get_installed_apps() -> Vec<InstalledApp> {
     apps
 }
 
-/// Parse a .desktop file and extract app information
+/// Get installed applications on Windows from Start Menu shortcuts and registry
+#[cfg(target_os = "windows")]
+fn get_installed_apps_windows() -> Vec<InstalledApp> {
+    let mut apps = Vec::new();
+
+    // Scan Start Menu shortcuts (.lnk files)
+    let start_menu_dirs: Vec<PathBuf> = vec![
+        // Common (all users) Start Menu
+        std::env::var("ProgramData")
+            .map(|p| PathBuf::from(p).join("Microsoft\\Windows\\Start Menu\\Programs"))
+            .unwrap_or_default(),
+        // Current user Start Menu
+        dirs::data_dir()
+            .map(|p| {
+                p.parent()
+                    .unwrap_or(&p)
+                    .join("Roaming\\Microsoft\\Windows\\Start Menu\\Programs")
+            })
+            .unwrap_or_default(),
+    ];
+
+    for dir in start_menu_dirs {
+        if dir.exists() && dir.is_dir() {
+            scan_start_menu_dir(&dir, &mut apps);
+        }
+    }
+
+    // Scan registry for installed programs
+    scan_registry_apps(&mut apps);
+
+    // Sort by name
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    // Deduplicate by name
+    apps.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase());
+
+    apps
+}
+
+/// Recursively scan Start Menu directories for .lnk shortcut files (Windows)
+#[cfg(target_os = "windows")]
+fn scan_start_menu_dir(dir: &PathBuf, apps: &mut Vec<InstalledApp>) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                // Recurse into subdirectories (program groups)
+                scan_start_menu_dir(&path, apps);
+            } else if path.extension().map_or(false, |ext| ext == "lnk") {
+                // Extract name from .lnk filename (without extension)
+                if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
+                    let name = name.to_string();
+
+                    // Skip common uninstallers and system utilities
+                    let skip_patterns = [
+                        "uninstall",
+                        "readme",
+                        "help",
+                        "license",
+                        "changelog",
+                        "release notes",
+                        "website",
+                        "documentation",
+                    ];
+                    if skip_patterns
+                        .iter()
+                        .any(|p| name.to_lowercase().contains(p))
+                    {
+                        continue;
+                    }
+
+                    if !apps.iter().any(|a| a.name == name) {
+                        apps.push(InstalledApp {
+                            name,
+                            exec: Some(path.to_string_lossy().to_string()),
+                            icon: None,
+                            desktop_file: path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string(),
+                            categories: Vec::new(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Scan Windows registry for installed programs
+#[cfg(target_os = "windows")]
+fn scan_registry_apps(apps: &mut Vec<InstalledApp>) {
+    use winreg::enums::*;
+    use winreg::RegKey;
+
+    let registry_paths = [
+        (
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+        ),
+        (
+            HKEY_LOCAL_MACHINE,
+            "SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+        ),
+        (
+            HKEY_CURRENT_USER,
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+        ),
+    ];
+
+    for (hkey, path) in &registry_paths {
+        let Ok(key) = RegKey::predef(*hkey).open_subkey_with_flags(path, KEY_READ) else {
+            continue;
+        };
+
+        for name in key.enum_keys().flatten() {
+            let Ok(subkey) = key.open_subkey_with_flags(&name, KEY_READ) else {
+                continue;
+            };
+
+            // Skip system components and entries without display names
+            let is_system: bool = subkey.get_value("SystemComponent").unwrap_or(0u32) == 1;
+            if is_system {
+                continue;
+            }
+
+            let display_name: String = match subkey.get_value("DisplayName") {
+                Ok(name) => name,
+                Err(_) => continue,
+            };
+
+            // Skip if name is empty or already exists
+            if display_name.is_empty() || apps.iter().any(|a| a.name == display_name) {
+                continue;
+            }
+
+            let install_location: Option<String> = subkey.get_value("InstallLocation").ok();
+            let display_icon: Option<String> = subkey.get_value("DisplayIcon").ok();
+
+            apps.push(InstalledApp {
+                name: display_name,
+                exec: install_location,
+                icon: display_icon,
+                desktop_file: name,
+                categories: Vec::new(),
+            });
+        }
+    }
+}
+
+/// Parse a .desktop file and extract app information (Linux only)
+#[cfg(target_os = "linux")]
 fn parse_desktop_file(path: &PathBuf) -> Option<InstalledApp> {
     let content = fs::read_to_string(path).ok()?;
 
@@ -140,7 +311,8 @@ fn parse_desktop_file(path: &PathBuf) -> Option<InstalledApp> {
     })
 }
 
-/// Clean the Exec field by removing field codes like %u, %U, %f, %F, etc.
+/// Clean the Exec field by removing field codes like %u, %U, %f, %F, etc. (Linux only)
+#[cfg(target_os = "linux")]
 fn clean_exec(exec: &str) -> String {
     let mut result = exec.to_string();
     // Remove common field codes
