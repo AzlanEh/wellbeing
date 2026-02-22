@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 env:
   CARGO_TERM_COLOR: always
@@ -45,10 +45,10 @@ jobs:
         config:
           - name: Linux
             platform: ubuntu-22.04
-            args: ''
+            args: ""
           - name: Windows
             platform: windows-latest
-            args: ''
+            args: ""
 
     runs-on: ${{ matrix.config.platform }}
     steps:
@@ -64,8 +64,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -73,8 +73,8 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
-          prefix-key: 'v1-rust'
+          workspaces: "./src-tauri -> target"
+          prefix-key: "v2-rust"
 
       - name: Install frontend dependencies
         run: npm ci
