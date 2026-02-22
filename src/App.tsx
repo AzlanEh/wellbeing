@@ -19,13 +19,13 @@ import "@/index.css";
 const REFRESH_INTERVAL = 30000;
 
 function App() {
-  const { 
-    activeTab, 
-    refreshAll, 
-    setActiveTab, 
+  const {
+    activeTab,
+    refreshAll,
+    setActiveTab,
     sidebarCollapsed,
     mobileSidebarOpen,
-    setMobileSidebarOpen 
+    setMobileSidebarOpen,
   } = useAppStore();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useTheme();
@@ -109,7 +109,7 @@ function App() {
         setMobileSidebarOpen(false);
       }
     },
-    [refreshAll, setActiveTab, mobileSidebarOpen, setMobileSidebarOpen]
+    [refreshAll, setActiveTab, mobileSidebarOpen, setMobileSidebarOpen],
   );
 
   useEffect(() => {
@@ -143,43 +143,37 @@ function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Skip navigation link for keyboard users */}
-      <a
-        href="#main-content"
-        className="skip-link"
-        onClick={(e) => {
-          e.preventDefault();
-          document.getElementById("main-content")?.focus();
-        }}
-      >
-        Skip to main content
-      </a>
-      
       {/* Mobile overlay */}
       {mobileSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
-      
+
       {/* Sidebar - Fixed position, hidden on mobile */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-50",
-        "transform transition-transform duration-300 ease-in-out",
-        mobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-      )}>
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-50",
+          "transform transition-transform duration-300 ease-in-out",
+          mobileSidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0",
+        )}
+      >
         <Sidebar />
       </div>
-      
+
       {/* Main content area - offset by sidebar width */}
-      <div className={cn(
-        "flex-1 flex flex-col h-screen transition-all duration-300",
-        sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-72"
-      )}>
+      <div
+        className={cn(
+          "flex-1 flex flex-col h-screen transition-all duration-300",
+          sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-72",
+        )}
+      >
         {/* Mobile header */}
         <MobileHeader />
-        
+
         {/* Main content - scrollable */}
         <main
           id="main-content"
@@ -188,16 +182,14 @@ function App() {
           role="main"
           aria-label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} view`}
         >
-          <div className="max-w-7xl mx-auto pb-8">
-            {renderContent()}
-          </div>
+          <div className="max-w-7xl mx-auto pb-8">{renderContent()}</div>
         </main>
       </div>
-      
-      <Toaster 
-        position="bottom-right" 
-        richColors 
-        closeButton 
+
+      <Toaster
+        position="bottom-right"
+        richColors
+        closeButton
         toastOptions={{
           className: "rounded-xl shadow-lg border-border/50",
         }}
