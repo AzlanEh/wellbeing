@@ -46,7 +46,6 @@ Type=simple
 ExecStart={binary_path} --background
 Restart=on-failure
 RestartSec=5
-Environment=DISPLAY=:0
 
 [Install]
 WantedBy=default.target
@@ -100,6 +99,9 @@ pub fn install_autostart() -> Result<String, String> {
         if output.is_ok() {
             let _ = Command::new("systemctl")
                 .args(["--user", "enable", "wellbeing.service"])
+                .output();
+            let _ = Command::new("systemctl")
+                .args(["--user", "start", "wellbeing.service"])
                 .output();
             methods_installed.push("systemd user service");
         }

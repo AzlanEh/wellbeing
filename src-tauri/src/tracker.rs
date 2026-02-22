@@ -102,14 +102,20 @@ impl UsageTracker {
     async fn track_window(&self) -> Result<(), String> {
         let mut window_name = get_active_window_name()?;
 
-        // Check for idle
-        let idle_seconds = match UserIdle::get_time() {
-            Ok(idle) => idle.as_seconds(),
-            Err(e) => {
-                // If we can't get idle time (e.g., missing X11 extension), assume user is active
-                // Log only occasionally or debug to avoid spamming
-                tracing::trace!("Failed to get idle time: {}", e);
-                0
+        // Check for idle (Skip on Wayland as it spams Xlib missing extension warnings)
+        let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
+            || std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "wayland";
+        let idle_seconds = if is_wayland {
+            0 // Assume active on Wayland due to lack of idle timer support
+        } else {
+            match UserIdle::get_time() {
+                Ok(idle) => idle.as_seconds(),
+                Err(e) => {
+                    // If we can't get idle time (e.g., missing X11 extension), assume user is active
+                    // Log only occasionally or debug to avoid spamming
+                    tracing::trace!("Failed to get idle time: {}", e);
+                    0
+                }
             }
         };
 
