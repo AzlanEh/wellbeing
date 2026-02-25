@@ -15,8 +15,8 @@ import { MobileHeader } from "@/components/MobileHeader";
 import { cn } from "@/lib/utils";
 import "@/index.css";
 
-// Refresh interval: 30 seconds when visible, pause when hidden
-const REFRESH_INTERVAL = 30000;
+// Refresh interval: 10 seconds when visible, pause when hidden
+const REFRESH_INTERVAL = 10000;
 
 function App() {
   const {

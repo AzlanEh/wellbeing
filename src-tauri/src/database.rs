@@ -226,8 +226,14 @@ impl Database {
 
     pub fn get_usage_today(&self, app_name: &str) -> SqliteResult<i64> {
         // Use SQLite's local time calculation for start of day
+        // For in-progress sessions, compute duration dynamically
         self.conn.query_row(
-            "SELECT COALESCE(SUM(us.duration_seconds), 0) FROM usage_sessions us
+            "SELECT COALESCE(SUM(
+                CASE WHEN us.duration_seconds = 0 AND us.end_time = us.start_time
+                     THEN MAX(strftime('%s','now') - us.start_time, 0)
+                     ELSE us.duration_seconds
+                END
+             ), 0) FROM usage_sessions us
              JOIN apps a ON us.app_id = a.id
              WHERE a.name = ?1 AND date(us.start_time, 'unixepoch', 'localtime') = date('now', 'localtime')",
             rusqlite::params![app_name],
@@ -237,14 +243,23 @@ impl Database {
 
     pub fn get_daily_usage(&self) -> SqliteResult<Vec<AppUsage>> {
         // Use SQLite's local time calculation
+        // For in-progress sessions (end_time == start_time, duration_seconds == 0),
+        // compute duration dynamically so they appear immediately in the UI
         let mut stmt = self.conn.prepare(
-            "SELECT a.name, COALESCE(SUM(us.duration_seconds), 0), COUNT(us.id), a.category
+            "SELECT a.name,
+                    COALESCE(SUM(
+                        CASE WHEN us.duration_seconds = 0 AND us.end_time = us.start_time
+                             THEN MAX(strftime('%s','now') - us.start_time, 0)
+                             ELSE us.duration_seconds
+                        END
+                    ), 0) as total_duration,
+                    COUNT(us.id), a.category
              FROM apps a
              LEFT JOIN usage_sessions us ON a.id = us.app_id 
                 AND date(us.start_time, 'unixepoch', 'localtime') = date('now', 'localtime')
              GROUP BY a.id
-             HAVING SUM(us.duration_seconds) > 0
-             ORDER BY SUM(us.duration_seconds) DESC",
+             HAVING total_duration > 0 OR COUNT(us.id) > 0
+             ORDER BY total_duration DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -370,7 +385,12 @@ impl Database {
     pub fn get_hourly_usage(&self) -> SqliteResult<Vec<HourlyUsage>> {
         let mut stmt = self.conn.prepare(
             "SELECT CAST(strftime('%H', start_time, 'unixepoch', 'localtime') AS INTEGER) as hour, 
-                    SUM(duration_seconds) as total
+                    SUM(
+                        CASE WHEN duration_seconds = 0 AND end_time = start_time
+                             THEN MAX(strftime('%s','now') - start_time, 0)
+                             ELSE duration_seconds
+                        END
+                    ) as total
              FROM usage_sessions
              WHERE date(start_time, 'unixepoch', 'localtime') = date('now', 'localtime')
              GROUP BY hour
@@ -394,7 +414,12 @@ impl Database {
     pub fn get_category_usage(&self) -> SqliteResult<Vec<CategoryUsage>> {
         let mut stmt = self.conn.prepare(
             "SELECT COALESCE(a.category, 'Uncategorized') as category, 
-                    SUM(us.duration_seconds) as total,
+                    SUM(
+                        CASE WHEN us.duration_seconds = 0 AND us.end_time = us.start_time
+                             THEN MAX(strftime('%s','now') - us.start_time, 0)
+                             ELSE us.duration_seconds
+                        END
+                    ) as total,
                     COUNT(DISTINCT a.id) as app_count
              FROM usage_sessions us
              JOIN apps a ON us.app_id = a.id
@@ -420,10 +445,16 @@ impl Database {
 
     pub fn is_app_blocked(&self, app_name: &str) -> SqliteResult<bool> {
         // Check if app has a limit with blocking enabled and usage exceeded
+        // Use dynamic duration for in-progress sessions
         let result: Option<(i32, i64)> = self
             .conn
             .query_row(
-                "SELECT al.daily_limit_minutes, COALESCE(SUM(us.duration_seconds), 0)
+                "SELECT al.daily_limit_minutes, COALESCE(SUM(
+                    CASE WHEN us.duration_seconds = 0 AND us.end_time = us.start_time
+                         THEN MAX(strftime('%s','now') - us.start_time, 0)
+                         ELSE us.duration_seconds
+                    END
+                 ), 0)
              FROM apps a
              JOIN app_limits al ON a.id = al.app_id AND al.block_when_exceeded = 1
              LEFT JOIN usage_sessions us ON a.id = us.app_id 
@@ -471,7 +502,14 @@ impl Database {
     /// Returns: (app_name, limit_minutes, used_seconds, block_when_exceeded)
     pub fn get_all_limit_status(&self) -> SqliteResult<Vec<(String, i32, i64, bool)>> {
         let mut stmt = self.conn.prepare(
-            "SELECT a.name, al.daily_limit_minutes, COALESCE(SUM(us.duration_seconds), 0), al.block_when_exceeded
+            "SELECT a.name, al.daily_limit_minutes,
+                    COALESCE(SUM(
+                        CASE WHEN us.duration_seconds = 0 AND us.end_time = us.start_time
+                             THEN MAX(strftime('%s','now') - us.start_time, 0)
+                             ELSE us.duration_seconds
+                        END
+                    ), 0),
+                    al.block_when_exceeded
              FROM apps a
              JOIN app_limits al ON a.id = al.app_id
              LEFT JOIN usage_sessions us ON a.id = us.app_id 
@@ -680,7 +718,12 @@ impl Database {
                 AND date(us.start_time, 'unixepoch', 'localtime') = date('now', 'localtime')
              WHERE al.block_when_exceeded = 1
              GROUP BY a.id
-             HAVING COALESCE(SUM(us.duration_seconds), 0) >= (al.daily_limit_minutes * 60)",
+             HAVING COALESCE(SUM(
+                 CASE WHEN us.duration_seconds = 0 AND us.end_time = us.start_time
+                      THEN MAX(strftime('%s','now') - us.start_time, 0)
+                      ELSE us.duration_seconds
+                 END
+             ), 0) >= (al.daily_limit_minutes * 60)",
         )?;
 
         let rows = stmt.query_map([], |row| row.get(0))?;

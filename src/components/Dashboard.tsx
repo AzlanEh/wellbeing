@@ -13,7 +13,7 @@ export const Dashboard = () => {
     dailyStats,
     weeklyStats,
     hourlyUsage,
-    isLoading,
+    isInitialLoad,
     setAppCategory,
     setAppCategorySilent,
   } = useAppStore();
@@ -80,7 +80,7 @@ export const Dashboard = () => {
     [setAppCategory, setAppCategorySilent],
   );
 
-  if (isLoading) {
+  if (isInitialLoad()) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-muted-foreground">Loading...</div>
