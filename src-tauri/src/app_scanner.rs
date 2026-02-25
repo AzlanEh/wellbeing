@@ -11,6 +11,177 @@ pub struct InstalledApp {
     pub categories: Vec<String>,
 }
 
+/// Resolve an icon name or path to an absolute file path.
+/// Returns None if the icon cannot be found.
+pub fn resolve_icon_path(icon: &str) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    {
+        resolve_icon_path_linux(icon)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        resolve_icon_path_windows(icon)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        let _ = icon;
+        None
+    }
+}
+
+/// Linux: resolve an XDG icon name (e.g. "firefox") or an absolute path to a PNG/SVG file.
+#[cfg(target_os = "linux")]
+/// Canonicalize a path, resolving any symlinks.
+/// Falls back to the original string if canonicalization fails (e.g. broken symlink).
+#[cfg(target_os = "linux")]
+fn canonicalize_path(path: &PathBuf) -> String {
+    std::fs::canonicalize(path)
+        .unwrap_or_else(|_| path.clone())
+        .to_string_lossy()
+        .to_string()
+}
+
+fn resolve_icon_path_linux(icon: &str) -> Option<String> {
+    let path = PathBuf::from(icon);
+
+    // If the icon is already an absolute path and the file exists, return the
+    // canonicalized path (resolves any symlinks so the Tauri asset scope check passes).
+    if path.is_absolute() && path.exists() {
+        return Some(canonicalize_path(&path));
+    }
+
+    // Icon is a theme name — search standard XDG icon directories.
+    // Preferred sizes (largest first so we get the best quality).
+    let preferred_sizes = [
+        "256x256", "128x128", "64x64", "48x48", "scalable", "32x32", "24x24", "22x22", "16x16",
+    ];
+    let extensions = ["png", "svg", "xpm"];
+
+    // Build search paths: user overrides first, then system paths.
+    let mut search_dirs: Vec<PathBuf> = Vec::new();
+
+    if let Some(home) = dirs::home_dir() {
+        search_dirs.push(home.join(".local/share/icons"));
+        search_dirs.push(home.join(".icons"));
+        // Some apps (e.g. AppImages, manually installed) store their icons here
+        search_dirs.push(home.join(".local/share/applications/icons"));
+    }
+
+    // Pixmaps (many apps install icons here directly by name)
+    search_dirs.push(PathBuf::from("/usr/share/pixmaps"));
+
+    // Common icon theme bases
+    let icon_base_dirs = [
+        "/usr/share/icons/hicolor",
+        "/usr/share/icons/Papirus",
+        "/usr/share/icons/breeze",
+        "/usr/share/icons/gnome",
+        "/usr/share/icons/Adwaita",
+        "/usr/share/icons/oxygen",
+        "/usr/share/icons/elementary",
+        "/usr/share/icons/Numix",
+    ];
+
+    // For icon name resolution, first try hicolor theme (the fallback theme per FreeDesktop spec)
+    for size in &preferred_sizes {
+        for base in &icon_base_dirs {
+            for ext in &extensions {
+                let candidate = PathBuf::from(base)
+                    .join(size)
+                    .join("apps")
+                    .join(format!("{}.{}", icon, ext));
+                if candidate.exists() {
+                    return Some(canonicalize_path(&candidate));
+                }
+            }
+        }
+    }
+
+    // Also try pixmaps directory directly (flat layout, no size subdirs)
+    for ext in &extensions {
+        let candidate = PathBuf::from("/usr/share/pixmaps").join(format!("{}.{}", icon, ext));
+        if candidate.exists() {
+            return Some(canonicalize_path(&candidate));
+        }
+    }
+
+    // Try user icon dirs flat
+    for dir in &search_dirs {
+        for ext in &extensions {
+            let candidate = dir.join(format!("{}.{}", icon, ext));
+            if candidate.exists() {
+                return Some(canonicalize_path(&candidate));
+            }
+        }
+    }
+
+    // Try Flatpak exports icon paths
+    let flatpak_icon_dirs = ["/var/lib/flatpak/exports/share/icons/hicolor"];
+    for size in &preferred_sizes {
+        for base in &flatpak_icon_dirs {
+            for ext in &extensions {
+                let candidate = PathBuf::from(base)
+                    .join(size)
+                    .join("apps")
+                    .join(format!("{}.{}", icon, ext));
+                if candidate.exists() {
+                    return Some(canonicalize_path(&candidate));
+                }
+            }
+        }
+    }
+
+    // User flatpak icons
+    if let Some(home) = dirs::home_dir() {
+        let user_flatpak_base = home.join(".local/share/flatpak/exports/share/icons/hicolor");
+        for size in &preferred_sizes {
+            for ext in &extensions {
+                let candidate = user_flatpak_base
+                    .join(size)
+                    .join("apps")
+                    .join(format!("{}.{}", icon, ext));
+                if candidate.exists() {
+                    return Some(canonicalize_path(&candidate));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Windows: resolve an icon path from the registry (usually an .exe path, optionally with comma-index).
+/// Returns the .exe/.ico path as-is so the frontend can display it via asset protocol.
+#[cfg(target_os = "windows")]
+fn resolve_icon_path_windows(icon: &str) -> Option<String> {
+    // Registry DisplayIcon values often look like "C:\path\to\app.exe,0" or "C:\path\to\app.ico"
+    // Strip the trailing comma+index if present.
+    let clean = if let Some(comma_pos) = icon.rfind(',') {
+        let before_comma = &icon[..comma_pos];
+        // Only strip if what follows the comma looks like an integer index
+        let after_comma = &icon[comma_pos + 1..];
+        if after_comma.trim().parse::<i32>().is_ok() {
+            before_comma.trim()
+        } else {
+            icon.trim()
+        }
+    } else {
+        icon.trim()
+    };
+
+    // Remove surrounding quotes if present
+    let clean = clean.trim_matches('"');
+
+    let path = PathBuf::from(clean);
+    if path.exists() {
+        Some(path.to_string_lossy().to_string())
+    } else {
+        None
+    }
+}
+
 /// Get all installed applications (cross-platform)
 pub fn get_installed_apps() -> Vec<InstalledApp> {
     #[cfg(target_os = "linux")]

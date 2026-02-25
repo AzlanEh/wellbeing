@@ -315,32 +315,6 @@ mod platform {
     }
 }
 
-// ============================================================
-// Fallback for other platforms (macOS, etc.)
-// ============================================================
-
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
-mod platform {
-    use super::*;
-
-    pub fn install_autostart() -> Result<String, String> {
-        Err("Autostart is not yet supported on this platform".to_string())
-    }
-
-    pub fn uninstall_autostart() -> Result<String, String> {
-        Ok("No autostart configuration found to remove".to_string())
-    }
-
-    pub fn get_autostart_status() -> AutostartStatus {
-        AutostartStatus {
-            enabled: false,
-            systemd_installed: false,
-            systemd_running: false,
-            xdg_installed: false,
-        }
-    }
-}
-
 // Re-export platform functions at module level
 pub fn install_autostart() -> Result<String, String> {
     platform::install_autostart()

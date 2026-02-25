@@ -104,6 +104,10 @@ export const api = {
     return invoke("get_installed_apps");
   },
 
+  resolveAppIcon: (iconName: string): Promise<string | null> => {
+    return invoke("resolve_app_icon", { iconName });
+  },
+
   sendTestNotification: (): Promise<void> => {
     return invoke("send_test_notification");
   },

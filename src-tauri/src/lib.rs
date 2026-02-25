@@ -272,6 +272,11 @@ fn get_installed_apps() -> Vec<InstalledApp> {
 }
 
 #[tauri::command]
+fn resolve_app_icon(icon_name: String) -> Option<String> {
+    app_scanner::resolve_icon_path(&icon_name)
+}
+
+#[tauri::command]
 fn send_test_notification() -> CmdResult<()> {
     if notifications::send_notification(
         "Digital Wellbeing",
@@ -867,6 +872,56 @@ pub fn run() {
                 tracing::error!(error = %e, "Failed to create system tray");
             }
 
+            // On Windows, allow the asset protocol to serve icon files from
+            // common program directories (registry DisplayIcon paths point here).
+            #[cfg(target_os = "windows")]
+            {
+                let asset_scope = app.asset_protocol_scope();
+                let win_icon_dirs = [
+                    std::env::var("ProgramFiles").ok(),
+                    std::env::var("ProgramFiles(x86)").ok(),
+                    std::env::var("ProgramW6432").ok(),
+                    std::env::var("LocalAppData").ok(),
+                    std::env::var("AppData").ok(),
+                ];
+                for dir in win_icon_dirs.iter().flatten() {
+                    let path = std::path::PathBuf::from(dir);
+                    if path.exists() {
+                        if let Err(e) = asset_scope.allow_directory(&path, true) {
+                            tracing::warn!(dir = %path.display(), error = %e, "Failed to allow icon dir");
+                        }
+                    }
+                }
+            }
+
+            // On Linux, also allow icon directories at runtime so that $HOME
+            // is resolved correctly and covers paths the static config may miss.
+            #[cfg(target_os = "linux")]
+            {
+                let asset_scope = app.asset_protocol_scope();
+                let mut linux_icon_dirs: Vec<std::path::PathBuf> = vec![
+                    std::path::PathBuf::from("/usr/share/icons"),
+                    std::path::PathBuf::from("/usr/share/pixmaps"),
+                    std::path::PathBuf::from("/var/lib/flatpak/exports/share/icons"),
+                    std::path::PathBuf::from("/var/lib/flatpak/app"),
+                    std::path::PathBuf::from("/opt"),
+                ];
+                if let Some(home) = dirs::home_dir() {
+                    linux_icon_dirs.push(home.join(".local/share/icons"));
+                    linux_icon_dirs.push(home.join(".icons"));
+                    linux_icon_dirs.push(home.join(".local/share/flatpak/exports/share/icons"));
+                    linux_icon_dirs.push(home.join(".local/share/flatpak/app"));
+                    linux_icon_dirs.push(home.join(".local/share/applications/icons"));
+                }
+                for dir in &linux_icon_dirs {
+                    if dir.exists() {
+                        if let Err(e) = asset_scope.allow_directory(dir, true) {
+                            tracing::warn!(dir = %dir.display(), error = %e, "Failed to allow Linux icon dir");
+                        }
+                    }
+                }
+            }
+
             // Create the background tracker with app handle and notification manager
             let handle = app.handle().clone();
             let emergency_for_tracker = Arc::clone(&tracker_emergency);
@@ -963,6 +1018,7 @@ pub fn run() {
             has_emergency_access,
             quit_blocked_app,
             get_installed_apps,
+            resolve_app_icon,
             send_test_notification,
             enable_autostart,
             disable_autostart,

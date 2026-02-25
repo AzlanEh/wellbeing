@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { AppIcon } from "@/components/AppIcon";
 
 const UNDO_TIMEOUT = 5000; // 5 seconds to undo
 
@@ -55,6 +56,11 @@ export const AppLimits = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [loadBlockedApps]);
+
+  // Build name → icon hint map for quick lookup
+  const iconMap = new Map<string, string | null>(
+    installedApps.map((a) => [a.name.toLowerCase(), a.icon ?? null])
+  );
 
   const filteredInstalledApps = installedApps.filter((app) => {
     const notLimited = !appLimits.find(
@@ -184,6 +190,7 @@ export const AppLimits = () => {
             const usage = getUsageForApp(limit.app_name);
             const limitSeconds = limit.daily_limit_minutes * 60;
             const blocked = isAppBlocked(limit.app_name);
+            const iconHint = iconMap.get(limit.app_name.toLowerCase()) ?? null;
 
             return (
               <Card
@@ -205,19 +212,22 @@ export const AppLimits = () => {
                 <CardHeader className="pb-3 pt-5">
                     <div className="flex justify-between items-start">
                         <div className="flex items-center gap-3">
-                            <div
-                                className={cn(
-                                "h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm transition-transform group-hover:scale-105",
-                                blocked ? "bg-destructive" : "bg-primary"
-                                )}
+                            {blocked ? (
+                              <div
+                                className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm bg-destructive transition-transform group-hover:scale-105"
                                 aria-hidden="true"
-                            >
-                                {blocked ? (
+                              >
                                 <Ban className="h-5 w-5" />
-                                ) : (
-                                limit.app_name.charAt(0).toUpperCase()
-                                )}
-                            </div>
+                              </div>
+                            ) : (
+                              <AppIcon
+                                appName={limit.app_name}
+                                iconHint={iconHint}
+                                className="h-10 w-10"
+                                shape="rounded-xl"
+                                hoverable
+                              />
+                            )}
                             <div>
                                 <CardTitle className="text-base font-semibold truncate max-w-[120px]" title={limit.app_name}>
                                     {limit.app_name}
@@ -377,9 +387,12 @@ export const AppLimits = () => {
                                 setNewLimit({ ...newLimit, appName: app.app_name })
                               }
                             >
-                              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                                {app.app_name.charAt(0).toUpperCase()}
-                              </div>
+                              <AppIcon
+                                appName={app.app_name}
+                                iconHint={iconMap.get(app.app_name.toLowerCase()) ?? null}
+                                className="h-8 w-8"
+                                shape="rounded-md"
+                              />
                               <span className="text-xs text-center truncate w-full font-medium">
                                 {app.app_name}
                               </span>
@@ -406,9 +419,12 @@ export const AppLimits = () => {
                             setNewLimit({ ...newLimit, appName: app.name })
                           }
                         >
-                          <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center text-muted-foreground font-bold text-sm">
-                            {app.name.charAt(0).toUpperCase()}
-                          </div>
+                          <AppIcon
+                            appName={app.name}
+                            iconHint={app.icon}
+                            className="h-8 w-8"
+                            shape="rounded-md"
+                          />
                           <span className="text-xs text-center truncate w-full font-medium">
                             {app.name}
                           </span>
