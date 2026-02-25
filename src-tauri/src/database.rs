@@ -72,6 +72,20 @@ pub struct Database {
 impl Database {
     pub fn new(db_path: PathBuf) -> SqliteResult<Self> {
         let conn = Connection::open(db_path)?;
+
+        // Enable WAL mode for better concurrent read/write performance.
+        // WAL allows readers to proceed without blocking writers and vice versa,
+        // which is critical since the background tracker writes every 5 seconds
+        // while the UI reads concurrently.
+        conn.pragma_update(None, "journal_mode", "WAL")?;
+
+        // Set a busy timeout so queries wait instead of immediately failing
+        // when the database is locked by another operation.
+        conn.pragma_update(None, "busy_timeout", 5000)?;
+
+        // Enable foreign keys (off by default in SQLite)
+        conn.pragma_update(None, "foreign_keys", "ON")?;
+
         let db = Database { conn };
         db.init_schema()?;
         db.run_migrations()?;

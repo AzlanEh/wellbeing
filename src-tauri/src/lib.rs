@@ -28,7 +28,7 @@ use notification_settings::{NotificationManager, NotificationSettings};
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{Manager, State};
 use theme::{Theme, ThemeLoader};
 use tokio::sync::Mutex;
 use tracker::UsageTracker;
@@ -43,6 +43,8 @@ pub struct AppState {
     pub goals_state: Arc<Mutex<GoalsState>>,
     pub emergency_access: Arc<EmergencyAccessManager>,
     pub tracker: Arc<Mutex<UsageTracker>>,
+    /// The background tracker instance, used for graceful shutdown
+    pub background_tracker: Arc<Mutex<Option<Arc<UsageTracker>>>>,
 }
 
 #[tauri::command]
@@ -742,10 +744,43 @@ pub fn run_background() {
 
     rt.block_on(async {
         let tracker = Arc::new(UsageTracker::new(db, emergency_access));
+        let tracker_for_shutdown = Arc::clone(&tracker);
+
         tracing::info!("Background tracker started. Press Ctrl+C to stop.");
 
-        // Start tracking - this runs indefinitely
-        tracker.start_tracking().await;
+        // Set up graceful shutdown on SIGTERM/SIGINT
+        let shutdown_signal = async {
+            #[cfg(unix)]
+            {
+                use tokio::signal::unix::{signal, SignalKind};
+                let mut sigterm =
+                    signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
+                let mut sigint =
+                    signal(SignalKind::interrupt()).expect("Failed to register SIGINT handler");
+                tokio::select! {
+                    _ = sigterm.recv() => tracing::info!("Received SIGTERM"),
+                    _ = sigint.recv() => tracing::info!("Received SIGINT"),
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                tokio::signal::ctrl_c()
+                    .await
+                    .expect("Failed to register Ctrl+C handler");
+                tracing::info!("Received Ctrl+C");
+            }
+        };
+
+        tokio::select! {
+            _ = tracker.start_tracking() => {
+                // start_tracking runs forever, this branch is unreachable
+            }
+            _ = shutdown_signal => {
+                tracing::info!("Shutting down, finalizing current session...");
+                tracker_for_shutdown.finalize_current_session().await;
+                tracing::info!("Session finalized. Goodbye.");
+            }
+        }
     });
 }
 
@@ -797,6 +832,7 @@ pub fn run() {
     let tracker_emergency = Arc::clone(&emergency_access);
     let break_reminder_clone = Arc::clone(&break_reminder);
     let focus_manager_clone = Arc::clone(&focus_manager);
+    let notification_manager_clone = Arc::clone(&notification_manager);
 
     // Create tracker (will be set with app handle in setup)
     // This tracker is used for state management (emergency access commands)
@@ -805,6 +841,10 @@ pub fn run() {
         Arc::clone(&emergency_access),
     )));
     let tracker_for_state = Arc::clone(&tracker);
+
+    // Shared slot for the background tracker, filled during setup()
+    let background_tracker_slot: Arc<Mutex<Option<Arc<UsageTracker>>>> = Arc::new(Mutex::new(None));
+    let background_tracker_for_state = Arc::clone(&background_tracker_slot);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -819,6 +859,7 @@ pub fn run() {
             goals_state,
             emergency_access: Arc::clone(&tracker_emergency),
             tracker: tracker_for_state,
+            background_tracker: background_tracker_for_state,
         })
         .setup(move |app| {
             // Initialize system tray
@@ -826,16 +867,27 @@ pub fn run() {
                 tracing::error!(error = %e, "Failed to create system tray");
             }
 
-            // Create the background tracker with app handle
+            // Create the background tracker with app handle and notification manager
             let handle = app.handle().clone();
             let emergency_for_tracker = Arc::clone(&tracker_emergency);
+            let notification_manager_for_tracker = Arc::clone(&notification_manager_clone);
 
+            // Create the background tracker as an Arc so we can share it for shutdown
+            let mut background_tracker =
+                UsageTracker::new(tracker_db, emergency_for_tracker);
+            background_tracker.set_app_handle(handle.clone());
+            background_tracker.set_notification_manager(notification_manager_for_tracker);
+            let background_tracker = Arc::new(background_tracker);
+
+            // Store the background tracker for graceful shutdown
+            {
+                let mut slot = background_tracker_slot.blocking_lock();
+                *slot = Some(Arc::clone(&background_tracker));
+            }
+
+            let background_tracker_for_task = Arc::clone(&background_tracker);
             tauri::async_runtime::spawn(async move {
-                // Create a new tracker instance for the background task
-                let mut background_tracker = UsageTracker::new(tracker_db, emergency_for_tracker);
-                background_tracker.set_app_handle(handle);
-
-                Arc::new(background_tracker).start_tracking().await;
+                background_tracker_for_task.start_tracking().await;
             });
 
             // Run data cleanup on startup (delete data older than 90 days)
@@ -952,8 +1004,36 @@ pub fn run() {
             get_achievements,
             get_goals_stats
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(move |app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Graceful shutdown: finalize the current tracking session
+                // so we don't lose data for the session that was active at exit time
+                tracing::info!("App exiting, finalizing tracking session...");
+                let state: tauri::State<'_, AppState> = app_handle.state();
+                let bg_tracker = state.background_tracker.clone();
+                // Use blocking_lock since we're in the exit handler (not async context)
+                let tracker_opt = bg_tracker.blocking_lock();
+                if let Some(ref tracker) = *tracker_opt {
+                    let tracker: Arc<UsageTracker> = Arc::clone(tracker);
+                    // Run finalization synchronously to ensure it completes before exit
+                    let rt = tokio::runtime::Handle::try_current();
+                    match rt {
+                        Ok(handle) => {
+                            handle.block_on(tracker.finalize_current_session());
+                        }
+                        Err(_) => {
+                            // No runtime available, create one
+                            let rt = tokio::runtime::Runtime::new();
+                            if let Ok(rt) = rt {
+                                rt.block_on(tracker.finalize_current_session());
+                            }
+                        }
+                    }
+                }
+            }
+        });
 }
 
 #[cfg(test)]

@@ -2,8 +2,21 @@
 
 A cross-platform desktop application for tracking and managing your digital habits. Built with Tauri, React, and TypeScript.
 
+![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)
+![CI](https://github.com/AzlanEh/wellbeing/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+
+## Table of Contents
+
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
@@ -32,13 +45,13 @@ A cross-platform desktop application for tracking and managing your digital habi
 <summary>Click to view screenshots</summary>
 
 ### Dashboard
-![Dashboard](screenshort/screenshot-2026-01-19_22-54-10.png)
+![Dashboard](screenshots/screenshot-2026-01-19_22-54-10.png)
 
 ### Settings
-![App Limits](screenshort/screenshot-2026-01-19_22-54-37.png)
+![App Limits](screenshots/screenshot-2026-01-19_22-54-37.png)
 
 ### History
-![Focus Mode](screenshort/screenshot-2026-01-19_22-55-24.png)
+![Focus Mode](screenshots/screenshot-2026-01-19_22-55-24.png)
 
 </details>
 
@@ -73,8 +86,8 @@ paru -S digital-wellbeing
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/digital-wellbeing.git
-cd digital-wellbeing
+git clone https://github.com/AzlanEh/wellbeing.git
+cd wellbeing
 
 # Install dependencies
 npm install
