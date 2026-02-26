@@ -619,7 +619,7 @@ export const Settings = () => {
                 </div>
                 <div>
                    <h3 className="font-bold text-base sm:text-lg font-heading">Digital Wellbeing</h3>
-                   <p className="text-xs text-muted-foreground">Version 0.1.0 • Linux (Tauri + React)</p>
+                   <p className="text-xs text-muted-foreground">Version 0.1.3 • Linux (Tauri + React)</p>
                 </div>
              </div>
              <div className="text-[10px] text-muted-foreground bg-background/50 px-3 py-1.5 rounded-full border border-border/50 font-mono">

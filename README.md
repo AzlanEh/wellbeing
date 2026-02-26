@@ -2,7 +2,7 @@
 
 A cross-platform desktop application for tracking and managing your digital habits. Built with Tauri, React, and TypeScript.
 
-![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)
 ![CI](https://github.com/AzlanEh/wellbeing/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)
