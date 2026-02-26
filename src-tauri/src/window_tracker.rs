@@ -469,9 +469,21 @@ fn get_active_window_x11() -> Result<Option<String>, String> {
 
             Ok(Some(name))
         }
-        Err(_) => {
-            // Window detection can fail transiently (e.g., desktop focused, screen locked)
-            // This is not an error worth logging every second
+        Err(e) => {
+            // Log the first few failures so silent breakage is visible.
+            // Use a counter to avoid spamming logs every second.
+            use std::sync::atomic::{AtomicU32, Ordering};
+            static FAIL_COUNT: AtomicU32 = AtomicU32::new(0);
+            let count = FAIL_COUNT.fetch_add(1, Ordering::Relaxed);
+            if count < 5 {
+                tracing::warn!(
+                    "get_active_window failed (occurrence {}): {:?}",
+                    count + 1,
+                    e
+                );
+            } else if count == 5 {
+                tracing::warn!("get_active_window failed 5 times, suppressing further warnings");
+            }
             Ok(None)
         }
     }

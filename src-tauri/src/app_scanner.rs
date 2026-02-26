@@ -35,7 +35,6 @@ pub fn resolve_icon_path(icon: &str) -> Option<String> {
 #[cfg(target_os = "linux")]
 /// Canonicalize a path, resolving any symlinks.
 /// Falls back to the original string if canonicalization fails (e.g. broken symlink).
-#[cfg(target_os = "linux")]
 fn canonicalize_path(path: &PathBuf) -> String {
     std::fs::canonicalize(path)
         .unwrap_or_else(|_| path.clone())
@@ -43,6 +42,7 @@ fn canonicalize_path(path: &PathBuf) -> String {
         .to_string()
 }
 
+#[cfg(target_os = "linux")]
 fn resolve_icon_path_linux(icon: &str) -> Option<String> {
     let path = PathBuf::from(icon);
 

@@ -116,6 +116,19 @@ impl UsageTracker {
         let mut ticker = interval(Duration::from_secs(1));
         let mut limit_check_counter: u32 = 0;
 
+        // Startup diagnostic: test window detection once and log result
+        match get_active_window_name() {
+            Ok(Some(ref name)) => {
+                tracing::info!(window = %name, "Window tracking active - detected current window");
+            }
+            Ok(None) => {
+                tracing::warn!("Window tracking started but no active window detected (desktop/lock screen, or detection may be broken)");
+            }
+            Err(ref e) => {
+                tracing::error!(error = %e, "Window tracking failed on startup - app usage will NOT be recorded");
+            }
+        }
+
         loop {
             ticker.tick().await;
 
@@ -235,16 +248,48 @@ impl UsageTracker {
     async fn track_window(&self) -> Result<(), String> {
         let mut window_name = get_active_window_name()?;
 
+        // Diagnostic: log what the window detector returns (first 20 calls, then every 60th)
+        {
+            use std::sync::atomic::{AtomicU64, Ordering};
+            static TRACK_CALL_COUNT: AtomicU64 = AtomicU64::new(0);
+            let call_num = TRACK_CALL_COUNT.fetch_add(1, Ordering::Relaxed);
+            if call_num < 20 || call_num % 60 == 0 {
+                tracing::info!(
+                    call_num,
+                    window_name = ?window_name,
+                    "track_window: raw window detection result"
+                );
+            }
+        }
+
         // Check for idle - platform-specific behavior
         let idle_seconds = get_idle_seconds();
 
         if idle_seconds >= IDLE_THRESHOLD_SECONDS {
             // User is idle, treat as no active window to stop tracking
+            tracing::debug!(idle_seconds, "User idle, clearing window_name");
             window_name = None;
         }
 
         let app_name = match window_name {
-            Some(name) => extract_app_name(&name),
+            Some(ref name) => {
+                let extracted = extract_app_name(name);
+                // Diagnostic: log what extract_app_name returns
+                {
+                    use std::sync::atomic::{AtomicU64, Ordering};
+                    static EXTRACT_CALL_COUNT: AtomicU64 = AtomicU64::new(0);
+                    let call_num = EXTRACT_CALL_COUNT.fetch_add(1, Ordering::Relaxed);
+                    if call_num < 20 || call_num % 60 == 0 {
+                        tracing::info!(
+                            call_num,
+                            raw_name = %name,
+                            extracted_name = ?extracted,
+                            "track_window: extract_app_name result"
+                        );
+                    }
+                }
+                extracted
+            }
             None => None,
         };
 
@@ -305,6 +350,7 @@ impl UsageTracker {
                     match db.get_or_create_app(app, None) {
                         Ok(app_id) => match db.start_session(app_id, now) {
                             Ok(session_id) => {
+                                tracing::info!(app = %app, session_id, "Started tracking app");
                                 *current_session_id = Some(session_id);
                                 *session_start = Some(now);
                             }

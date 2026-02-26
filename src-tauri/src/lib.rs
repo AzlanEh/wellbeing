@@ -54,6 +54,13 @@ async fn get_daily_usage(state: State<'_, AppState>) -> CmdResult<DailyStats> {
 
     let total_seconds: i64 = apps.iter().map(|a| a.duration_seconds).sum();
 
+    tracing::info!(
+        app_count = apps.len(),
+        total_seconds,
+        apps = ?apps.iter().map(|a| (&a.app_name, a.duration_seconds)).collect::<Vec<_>>(),
+        "get_daily_usage called by frontend"
+    );
+
     Ok(DailyStats {
         total_seconds,
         apps,
