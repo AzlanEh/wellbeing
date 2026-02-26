@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Target,
   Play,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { api } from "@/services/api";
 import type { FocusSettings, FocusSession, FocusSchedule, InstalledApp } from "@/types";
+import { AppIcon } from "@/components/AppIcon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -254,6 +255,14 @@ export const FocusMode = () => {
       console.error(error);
     }
   };
+
+  // Build name → icon hint map for quick lookup
+  const iconMap = useMemo(
+    () => new Map<string, string | null>(
+      installedApps.map((a) => [a.name.toLowerCase(), a.icon ?? null])
+    ),
+    [installedApps]
+  );
 
   const filteredApps = installedApps.filter((app) => {
     const notBlocked = !settings?.blocked_apps.includes(app.name);
@@ -516,9 +525,12 @@ export const FocusMode = () => {
                   className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors group"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                      {app.charAt(0).toUpperCase()}
-                    </div>
+                    <AppIcon
+                      appName={app}
+                      iconHint={iconMap.get(app.toLowerCase()) ?? null}
+                      className="h-8 w-8"
+                      shape="rounded-lg"
+                    />
                     <span className="font-medium text-sm truncate">{app}</span>
                   </div>
                   <Button
@@ -656,9 +668,12 @@ export const FocusMode = () => {
                     onClick={() => handleAddBlockedApp(app.name)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                        {app.name.charAt(0).toUpperCase()}
-                      </div>
+                      <AppIcon
+                        appName={app.name}
+                        iconHint={app.icon}
+                        className="h-8 w-8"
+                        shape="rounded-lg"
+                      />
                       <span className="text-sm font-medium">{app.name}</span>
                     </div>
                     <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />

@@ -19,7 +19,22 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data:; font-src 'self' data:; connect-src ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "/usr/share/icons/**/*",
+          "/usr/share/pixmaps/*",
+          "/var/lib/flatpak/exports/share/icons/**/*",
+          "/var/lib/flatpak/app/**/*",
+          "/opt/**/*",
+          "$HOME/.local/share/icons/**/*",
+          "$HOME/.local/share/flatpak/exports/share/icons/**/*",
+          "$HOME/.local/share/flatpak/app/**/*",
+          "$HOME/.icons/**/*",
+          "$HOME/.local/share/applications/icons/*"
+        ]
+      }
     }
   },
   "bundle": {

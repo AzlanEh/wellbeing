@@ -560,13 +560,6 @@ impl UsageTracker {
                 .output();
         }
 
-        #[cfg(target_os = "macos")]
-        {
-            // On macOS, use osascript to quit the app
-            let script = format!(r#"tell application "{}" to quit"#, app_name);
-            let _ = Command::new("osascript").args(["-e", &script]).output();
-        }
-
         #[cfg(target_os = "windows")]
         {
             // On Windows, use taskkill (less aggressive approach - send SIGTERM)

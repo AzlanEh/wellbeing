@@ -1,10 +1,12 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAppStore } from "@/store/useAppStore";
 import { StatsCards } from "./dashboard/StatsCards";
 import { UsageChart } from "./dashboard/UsageChart";
 import { AppBreakdownPie } from "./dashboard/AppBreakdownPie";
 import { AppUsageList } from "./dashboard/AppUsageList";
+import { api } from "@/services/api";
+import type { InstalledApp } from "@/types";
 
 const UNDO_TIMEOUT = 5000;
 
@@ -17,6 +19,21 @@ export const Dashboard = () => {
     setAppCategory,
     setAppCategorySilent,
   } = useAppStore();
+
+  const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
+
+  useEffect(() => {
+    api.getInstalledApps().then(setInstalledApps).catch(console.error);
+  }, []);
+
+  // Build a case-insensitive name → icon hint map from installed apps.
+  const iconMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const app of installedApps) {
+      map.set(app.name.toLowerCase(), app.icon ?? null);
+    }
+    return map;
+  }, [installedApps]);
 
   // Memoized computations
   const totalToday = dailyStats?.total_seconds || 0;
@@ -119,6 +136,7 @@ export const Dashboard = () => {
         apps={appsToday}
         totalToday={totalToday}
         onCategoryChange={handleCategoryChange}
+        iconMap={iconMap}
       />
     </div>
   );

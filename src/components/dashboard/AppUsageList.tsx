@@ -13,14 +13,17 @@ import { APP_CATEGORIES, AppUsage } from "@/types";
 import { COLORS, CATEGORY_COLORS } from "./constants";
 import { Progress } from "@/components/ui/progress";
 import { Monitor, MoreHorizontal } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 
 interface AppUsageListProps {
   apps: AppUsage[];
   totalToday: number;
   onCategoryChange: (appName: string, category: string) => Promise<void>;
+  /** Optional map of lowercased app name → raw icon hint (from InstalledApp.icon) */
+  iconMap?: Map<string, string | null>;
 }
 
-export const AppUsageList = ({ apps, totalToday, onCategoryChange }: AppUsageListProps) => {
+export const AppUsageList = ({ apps, totalToday, onCategoryChange, iconMap }: AppUsageListProps) => {
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
   const handleCategoryChange = async (appName: string, category: string) => {
@@ -50,6 +53,7 @@ export const AppUsageList = ({ apps, totalToday, onCategoryChange }: AppUsageLis
             apps.map((app, index) => {
               const percentage = Math.min((app.duration_seconds / totalToday) * 100, 100);
               const bgColor = COLORS[index % COLORS.length];
+              const iconHint = iconMap?.get(app.app_name.toLowerCase()) ?? null;
               
               return (
                 <div
@@ -61,14 +65,14 @@ export const AppUsageList = ({ apps, totalToday, onCategoryChange }: AppUsageLis
                 >
                   {/* App Name & Icon */}
                   <div className="col-span-6 sm:col-span-5 flex items-center gap-3 min-w-0">
-                    <div
-                        className="relative h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold shadow-sm shrink-0 transition-transform group-hover:scale-105"
-                        style={{ 
-                        background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}dd 100%)`
-                        }}
-                    >
-                        <span className="text-sm">{app.app_name.charAt(0).toUpperCase()}</span>
-                    </div>
+                    <AppIcon
+                      appName={app.app_name}
+                      iconHint={iconHint}
+                      className="h-10 w-10"
+                      shape="rounded-xl"
+                      hoverable
+                      color={bgColor}
+                    />
                     <div className="min-w-0 flex flex-col items-start gap-1">
                          <span className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">{app.app_name}</span>
                          

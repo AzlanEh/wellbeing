@@ -43,22 +43,6 @@ pub fn send_notification_with_urgency(title: &str, body: &str, urgency: &str) ->
         }
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        let script = format!(
-            r#"display notification "{}" with title "{}""#,
-            body.replace('"', r#"\""#),
-            title.replace('"', r#"\""#)
-        );
-        let result = Command::new("osascript").args(["-e", &script]).output();
-
-        if let Ok(output) = result {
-            if output.status.success() {
-                return true;
-            }
-        }
-    }
-
     #[cfg(target_os = "windows")]
     {
         // Use PowerShell BurntToast or simple toast notification
