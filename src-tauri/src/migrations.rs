@@ -117,15 +117,17 @@ pub fn run_migrations(conn: &Connection) -> SqliteResult<u32> {
                 continue;
             }
 
-            // Try to execute, but don't fail on "column already exists" errors
-            // which happen when ALTER TABLE tries to add an existing column
+            // Try to execute, but don't fail on known benign errors:
+            // - "duplicate column": ALTER TABLE tries to add existing column
+            // - "no such column": index references a column that doesn't exist yet
             match conn.execute(statement, []) {
                 Ok(_) => {}
                 Err(e) => {
                     let error_msg = e.to_string();
-                    // SQLite error for duplicate column: "duplicate column name"
                     if error_msg.contains("duplicate column") {
                         tracing::debug!(statement = statement, "Skipping: column already exists");
+                    } else if error_msg.contains("no such column") {
+                        tracing::debug!(statement = statement, "Skipping: column does not exist");
                     } else {
                         return Err(e);
                     }

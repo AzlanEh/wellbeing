@@ -94,12 +94,16 @@ impl Database {
 
     fn init_schema(&self) -> SqliteResult<()> {
         // Create core tables - these are the base schema
+        // Note: category, is_blocked were added by migration 1 but are included here
+        // so fresh installs get the complete schema without relying on ALTER TABLE.
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS apps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 path TEXT,
                 icon_path TEXT,
+                category TEXT,
+                is_blocked INTEGER DEFAULT 0,
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )",
             [],
@@ -122,6 +126,7 @@ impl Database {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 app_id INTEGER NOT NULL UNIQUE,
                 daily_limit_minutes INTEGER NOT NULL,
+                block_when_exceeded INTEGER DEFAULT 0,
                 FOREIGN KEY (app_id) REFERENCES apps(id)
             )",
             [],
