@@ -17,6 +17,7 @@ jobs:
     outputs:
       release_id: ${{ steps.create-release.outputs.id }}
       upload_url: ${{ steps.create-release.outputs.upload_url }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,9 +35,34 @@ jobs:
           prerelease: false
           generate_release_notes: true
 
+  update-pkgver:
+    name: Sync pkgver in PKGBUILD
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update pkgver
+        run: |
+          VERSION=${{ needs.create-release.outputs.version }}
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" pkg/linux/arch/PKGBUILD
+
+      - name: Commit and push updated PKGBUILD
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pkg/linux/arch/PKGBUILD
+          git diff --cached --quiet || git commit -m "chore: sync PKGBUILD pkgver to ${{ needs.create-release.outputs.version }}"
+          git push origin main
+
   build:
     name: Build (${{ matrix.config.name }})
-    needs: create-release
+    needs: [create-release, update-pkgver]
     permissions:
       contents: write
     strategy:
@@ -91,7 +117,7 @@ jobs:
 
   build-arch:
     name: Build (Arch Linux)
-    needs: create-release
+    needs: [create-release, update-pkgver]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -111,14 +137,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
-
-      - name: Sync pkgver in PKGBUILD
-        run: |
-          sed -i "s/^pkgver=.*/pkgver=${{ steps.version.outputs.version }}/" pkg/linux/arch/PKGBUILD
+        with:
+          ref: main
 
       - name: Create build user (makepkg refuses to run as root)
         run: |
