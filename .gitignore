@@ -24,3 +24,9 @@ test-results
 *.njsproj
 *.sln
 *.sw?
+
+# Arch Linux makepkg build artifacts
+pkg/linux/arch/*.pkg.tar.zst
+pkg/linux/arch/*.pkg.tar.xz
+pkg/linux/arch/pkg/
+pkg/linux/arch/src/

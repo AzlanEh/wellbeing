@@ -89,9 +89,64 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.config.args }}
 
+  build-arch:
+    name: Build (Arch Linux)
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install base dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git sudo nodejs npm rustup \
+            webkit2gtk-4.1 gtk3 libappindicator-gtk3 librsvg \
+            libayatana-appindicator appmenu-gtk-module libnotify \
+            pkg-config openssl
+
+      - name: Setup Rust via rustup
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Sync pkgver in PKGBUILD
+        run: |
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.version.outputs.version }}/" pkg/linux/arch/PKGBUILD
+
+      - name: Create build user (makepkg refuses to run as root)
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown -R builder:builder .
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: /home/builder/.cargo/registry
+          key: arch-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: arch-cargo-
+
+      - name: Build PKGBUILD
+        run: su builder -c "cd $(pwd)/pkg/linux/arch && makepkg -s --noconfirm --noprogressbar"
+
+      - name: Upload Arch package to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: pkg/linux/arch/wellbeing-*.pkg.tar.zst
+          release_id: ${{ needs.create-release.outputs.release_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   publish-release:
     name: Publish Release
-    needs: [create-release, build]
+    needs: [create-release, build, build-arch]
     runs-on: ubuntu-latest
     permissions:
       contents: write
