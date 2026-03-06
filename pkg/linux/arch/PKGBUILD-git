@@ -1,5 +1,5 @@
 # Maintainer: Azlan Ehtasham <azlanehtesham02@gmail.com>
-pkgname=digital-wellbeing-git
+pkgname=wellbeing-git
 pkgver=r1.abc1234
 pkgrel=1
 pkgdesc="Desktop app for tracking screen time and app usage (git version)"
@@ -12,6 +12,7 @@ depends=(
     'libappindicator-gtk3'
     'librsvg'
     'libayatana-appindicator'
+    'appmenu-gtk-module'
 )
 makedepends=(
     'rust'
@@ -20,7 +21,6 @@ makedepends=(
     'npm'
     'pkg-config'
     'openssl'
-    'appmenu-gtk-module'
     'libappindicator-gtk3'
     'librsvg'
     'git'
@@ -28,8 +28,8 @@ makedepends=(
 optdepends=(
     'libnotify: desktop notifications'
 )
-provides=('digital-wellbeing')
-conflicts=('digital-wellbeing' 'digital-wellbeing-bin')
+provides=('wellbeing')
+conflicts=('wellbeing' 'wellbeing-bin')
 source=("git+https://github.com/Azlaneh/wellbeing.git")
 sha256sums=('SKIP')
 
@@ -42,34 +42,39 @@ prepare() {
     cd "$srcdir/wellbeing"
 
     # Install npm dependencies
-    npm ci
+    npm install --prefer-offline
 }
 
 build() {
     cd "$srcdir/wellbeing"
 
-    # Build the frontend
-    npm run build
+    # Unset makepkg flags that break Rust/C build scripts:
+    # - RUSTFLAGS: injects --remap-path-prefix which corrupts bundled sqlite3/ring linking
+    # - CFLAGS: -flto=auto causes LTO object files to conflict with bundled static libs
+    # - LDFLAGS: may reference flags incompatible with cargo's linker invocation
+    export RUSTFLAGS=""
+    export CFLAGS=""
+    export CXXFLAGS=""
+    export LDFLAGS=""
 
-    # Build the Tauri app
-    cd src-tauri
-    cargo build --release
+    # Use tauri build so the frontend bundle is embedded (not a devUrl connection)
+    npm run tauri -- build --no-bundle
 }
 
 package() {
     cd "$srcdir/wellbeing"
 
     # Install binary
-    install -Dm755 "src-tauri/target/release/wellbeing" "$pkgdir/usr/bin/digital-wellbeing"
+    install -Dm755 "src-tauri/target/release/wellbeing" "$pkgdir/usr/bin/wellbeing"
 
     # Install desktop file
-    install -Dm644 "pkg/arch/digital-wellbeing.desktop" "$pkgdir/usr/share/applications/digital-wellbeing.desktop"
+    install -Dm644 "pkg/linux/arch/wellbeing.desktop" "$pkgdir/usr/share/applications/wellbeing.desktop"
 
     # Install icons
-    install -Dm644 "src-tauri/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/digital-wellbeing.png"
-    install -Dm644 "src-tauri/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/digital-wellbeing.png"
-    install -Dm644 "src-tauri/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/digital-wellbeing.png"
-    install -Dm644 "src-tauri/icons/icon.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/digital-wellbeing.png"
+    install -Dm644 "src-tauri/icons/32x32.png" "$pkgdir/usr/share/icons/hicolor/32x32/apps/wellbeing.png"
+    install -Dm644 "src-tauri/icons/128x128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/wellbeing.png"
+    install -Dm644 "src-tauri/icons/128x128@2x.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/wellbeing.png"
+    install -Dm644 "src-tauri/icons/icon.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/wellbeing.png"
 
     # Install license
     install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
