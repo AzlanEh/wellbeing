@@ -40,6 +40,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -62,12 +63,7 @@
         "bundleMediaFramework": false
       },
       "rpm": {
-        "depends": [
-          "webkit2gtk4.1",
-          "gtk3",
-          "libappindicator-gtk3",
-          "librsvg2"
-        ]
+        "depends": ["webkit2gtk4.1", "gtk3", "libappindicator-gtk3", "librsvg2"]
       }
     },
     "windows": {
@@ -81,5 +77,13 @@
     "category": "Utility",
     "copyright": "Copyright 2026",
     "licenseFile": "../LICENSE"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUyRUM4REJDOTg4NjYyNTkKUldSWllvYVl2STNzNHBMS3lTTGVEOVNzdEdDY2Z1eWp2NEdYdmhzVVROMVp0a25TbE83WEFhRk4K",
+      "endpoints": [
+        "https://github.com/AzlanEh/wellbeing/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Moon, Sun, Monitor, Download, FileJson, FileText, Timer, Keyboard, Bell } from "lucide-react";
+import { Moon, Sun, Monitor, Download, FileJson, FileText, Timer, Keyboard, Bell, RefreshCw, ArrowUpCircle, CheckCircle2 } from "lucide-react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { api } from "@/services/api";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import { useUpdaterContext } from "@/contexts/UpdaterContext";
 import type { AutostartStatus, BreakSettings, NotificationSettings } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export const Settings = () => {
   const [autostartLoading, setAutostartLoading] = useState(false);
   const [autostartMessage, setAutostartMessage] = useState<string | null>(null);
   const { theme, setTheme } = useDarkMode();
+  const { state: updateState, checkForUpdate } = useUpdaterContext();
 
   // Export state
   const [exportLoading, setExportLoading] = useState(false);
@@ -398,6 +400,62 @@ export const Settings = () => {
                     : "bg-green-500/10 text-green-600"
                 )}>
                 {autostartMessage}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Software Updates Section */}
+        <Card className="border-border/50 hover:shadow-lg transition-all">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center">
+                <ArrowUpCircle className="h-4 w-4 text-white" />
+              </div>
+              Software Updates
+            </CardTitle>
+            <CardDescription className="text-xs">Keep wellbeing up to date</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div className="space-y-0.5">
+                <p className="font-medium text-sm">Current Version</p>
+                <p className="text-[10px] text-muted-foreground font-mono">v0.1.3</p>
+              </div>
+              {updateState.status === "available" && (
+                <Badge className="text-[10px] bg-sky-500/15 text-sky-600 border-sky-500/30 hover:bg-sky-500/20">
+                  v{updateState.info.version} available
+                </Badge>
+              )}
+              {updateState.status === "up-to-date" && (
+                <Badge variant="outline" className="text-[10px] text-green-600 border-green-500/40">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Up to date
+                </Badge>
+              )}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => checkForUpdate(false)}
+              disabled={updateState.status === "checking" || updateState.status === "downloading" || updateState.status === "installing"}
+              className="w-full gap-1.5 h-9"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5",
+                  updateState.status === "checking" && "animate-spin",
+                )}
+              />
+              <span className="text-xs">
+                {updateState.status === "checking" ? "Checking…" : "Check for Updates"}
+              </span>
+            </Button>
+
+            {updateState.status === "error" && (
+              <p className="text-[10px] p-2 rounded-lg bg-destructive/10 text-destructive">
+                {updateState.message}
               </p>
             )}
           </CardContent>

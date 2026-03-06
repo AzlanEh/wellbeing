@@ -28,7 +28,8 @@ use notification_settings::{NotificationManager, NotificationSettings};
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::Arc;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
+use tauri_plugin_updater::UpdaterExt;
 use theme::{Theme, ThemeLoader};
 use tokio::sync::Mutex;
 use tracker::UsageTracker;
@@ -723,6 +724,81 @@ struct BreakStatus {
     is_on_break: bool,
 }
 
+#[derive(serde::Serialize)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub body: Option<String>,
+    pub date: Option<String>,
+}
+
+/// Check if a new app version is available.
+/// Returns Some(UpdateInfo) if an update exists, None if already up to date or
+/// if the update endpoint is unreachable / has no release yet.
+#[tauri::command]
+async fn check_for_update(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let updater = app
+        .updater()
+        .map_err(|e: tauri_plugin_updater::Error| e.to_string())?;
+
+    match updater.check().await {
+        Ok(Some(update)) => Ok(Some(UpdateInfo {
+            version: update.version.clone(),
+            body: update.body.clone(),
+            date: update.date.as_ref().map(|d| format!("{}", d)),
+        })),
+        Ok(None) => Ok(None),
+        Err(e) => {
+            let msg = e.to_string();
+            // Treat "no valid release JSON" as "no update" — this happens when no
+            // release has been published yet or the endpoint returns a non-200.
+            if msg.contains("did not respond with a successful status code")
+                || msg.contains("no valid release JSON")
+                || msg.contains("invalid status code")
+                || msg.contains("404")
+            {
+                tracing::debug!(error = %msg, "Update endpoint returned no release, treating as up-to-date");
+                Ok(None)
+            } else {
+                Err(msg)
+            }
+        }
+    }
+}
+
+/// Download and install the pending update, emitting progress events.
+/// After installation completes the app will relaunch automatically.
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    let updater = app
+        .updater()
+        .map_err(|e: tauri_plugin_updater::Error| e.to_string())?;
+
+    let update = updater
+        .check()
+        .await
+        .map_err(|e: tauri_plugin_updater::Error| e.to_string())?
+        .ok_or_else(|| "No update available".to_string())?;
+
+    let app_handle = app.clone();
+    update
+        .download_and_install(
+            move |chunk_length: usize, content_length: Option<u64>| {
+                let _ = app_handle.emit(
+                    "update-download-progress",
+                    serde_json::json!({
+                        "chunkLength": chunk_length,
+                        "contentLength": content_length,
+                    }),
+                );
+            },
+            || {},
+        )
+        .await
+        .map_err(|e: tauri_plugin_updater::Error| e.to_string())?;
+
+    app.restart();
+}
+
 /// Run the app in headless background mode (no GUI window)
 /// This is used by the autostart service to track usage silently
 pub fn run_background() {
@@ -859,6 +935,8 @@ pub fn run() {
     let background_tracker_for_state = Arc::clone(&background_tracker_slot);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -1065,7 +1143,9 @@ pub fn run() {
             remove_goal,
             get_goals_progress,
             get_achievements,
-            get_goals_stats
+            get_goals_stats,
+            check_for_update,
+            install_update
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
