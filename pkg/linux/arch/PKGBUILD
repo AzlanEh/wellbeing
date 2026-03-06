@@ -23,6 +23,7 @@ makedepends=(
     'openssl'
     'libappindicator-gtk3'
     'librsvg'
+    'libxss'
 )
 optdepends=(
     'libnotify: desktop notifications'
