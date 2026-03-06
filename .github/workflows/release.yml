@@ -144,6 +144,11 @@ jobs:
         run: |
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          # Copy rustup installation to builder and set default toolchain
+          cp -r /root/.rustup /home/builder/.rustup
+          cp -r /root/.cargo /home/builder/.cargo
+          chown -R builder:builder /home/builder/.rustup /home/builder/.cargo
+          su builder -c "rustup default stable"
           chown -R builder:builder .
 
       - name: Cache cargo registry
