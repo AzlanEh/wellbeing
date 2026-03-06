@@ -155,7 +155,7 @@ jobs:
           restore-keys: arch-cargo-
 
       - name: Build PKGBUILD
-        run: su builder -c "source ~/.cargo/env && cd $(pwd)/pkg/linux/arch && makepkg -s --noconfirm --noprogressbar"
+        run: su builder -s /bin/bash -c "export PATH=/home/builder/.cargo/bin:\$PATH && cd $(pwd)/pkg/linux/arch && makepkg -s --noconfirm --noprogressbar"
 
       - name: Upload Arch package to release
         uses: softprops/action-gh-release@v2

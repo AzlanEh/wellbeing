@@ -44,6 +44,9 @@ prepare() {
 build() {
     cd "$_srcdir"
 
+    # Ensure cargo is on PATH (needed when building under CI with rustup)
+    export PATH="$HOME/.cargo/bin:$PATH"
+
     # Unset makepkg flags that break Rust/C build scripts:
     # - RUSTFLAGS: injects --remap-path-prefix which corrupts bundled sqlite3/ring linking
     # - CFLAGS: -flto=auto causes LTO object files to conflict with bundled static libs
